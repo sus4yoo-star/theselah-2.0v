@@ -65,6 +65,33 @@ function LoginInner() {
     }
   }, [configured, next, t]);
 
+  const handleKakao = useCallback(async () => {
+    setError(null);
+    if (!configured) {
+      setError(t.authConfigMissing);
+      return;
+    }
+    setLoading(true);
+    try {
+      const supabase = createClient();
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "kakao",
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(
+            next
+          )}`,
+        },
+      });
+      if (error) {
+        setError(error.message);
+        setLoading(false);
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Sign-in failed");
+      setLoading(false);
+    }
+  }, [configured, next, t]);
+
   const handleEmail = useCallback(async () => {
     setError(null);
     setSuccess(null);
@@ -143,7 +170,7 @@ function LoginInner() {
 
         <Button
           variant="outline"
-          className="mb-5 w-full"
+          className="mb-2.5 w-full"
           onClick={handleGoogle}
           disabled={loading}
         >
@@ -155,6 +182,21 @@ function LoginInner() {
           </svg>
           {t.google}
         </Button>
+
+        <button
+          type="button"
+          onClick={handleKakao}
+          disabled={loading}
+          className="mb-5 inline-flex h-10 w-full items-center justify-center gap-2 rounded-md bg-[#FEE500] text-[14px] font-medium text-[#191919] transition-opacity hover:opacity-90 disabled:opacity-50"
+        >
+          <svg className="h-4 w-4" viewBox="0 0 256 256" aria-hidden>
+            <path
+              fill="#191919"
+              d="M128 36C70.562 36 24 72.713 24 118c0 29.279 19.466 54.97 48.748 69.477-1.593 5.494-10.237 35.344-10.581 37.689 0 0-.207 1.762.934 2.434.689.405 1.49.434 2.184.151.703-.281 25.354-16.563 39.658-26.005 7.336 1.063 14.99 1.62 22.057 1.62 57.438 0 104-36.713 104-82S185.438 36 128 36z"
+            />
+          </svg>
+          {t.kakao}
+        </button>
 
         <div className="mb-4 flex items-center gap-3 text-[11px] uppercase tracking-widest text-selah-cream3">
           <span className="h-px flex-1 bg-white/10" />

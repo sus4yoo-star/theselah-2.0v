@@ -38,6 +38,7 @@ export interface Dict {
   authTitle: string;
   authDesc: string;
   google: string;
+  kakao: string;
   email: string;
   password: string;
   name: string;
@@ -115,6 +116,7 @@ const ko: Dict = {
   authTitle: "마음을 나누기 전, 안전한 공간을 준비할게요.",
   authDesc: "로그인하면 상담 기록과 마음의 여정을 사용자별로 저장합니다.",
   google: "Google로 계속하기",
+  kakao: "카카오로 계속하기",
   email: "이메일",
   password: "비밀번호",
   name: "이름 (선택)",
@@ -198,6 +200,7 @@ const en: Dict = {
   authTitle: "Before you share your heart, we prepare a safe space.",
   authDesc: "Sign in to save your conversations and heart journey securely.",
   google: "Continue with Google",
+  kakao: "Continue with Kakao",
   email: "Email",
   password: "Password",
   name: "Name (optional)",
@@ -280,6 +283,7 @@ const th: Dict = {
   authTitle: "ก่อนแบ่งปันหัวใจ เราจะเตรียมพื้นที่ปลอดภัยให้คุณ",
   authDesc: "เข้าสู่ระบบเพื่อบันทึกบทสนทนาและเส้นทางหัวใจของคุณอย่างปลอดภัย",
   google: "ดำเนินการต่อด้วย Google",
+  kakao: "ดำเนินการต่อด้วย Kakao",
   email: "อีเมล",
   password: "รหัสผ่าน",
   name: "ชื่อ (ไม่บังคับ)",
@@ -363,6 +367,7 @@ const es: Dict = {
   authDesc:
     "Inicia sesión para guardar tus conversaciones y tu camino emocional.",
   google: "Continuar con Google",
+  kakao: "Continuar con Kakao",
   email: "Correo",
   password: "Contraseña",
   name: "Nombre (opcional)",
@@ -448,6 +453,7 @@ const pt: Dict = {
   authDesc:
     "Entre para salvar suas conversas e sua jornada emocional com segurança.",
   google: "Continuar com Google",
+  kakao: "Continuar com Kakao",
   email: "E-mail",
   password: "Senha",
   name: "Nome (opcional)",
@@ -532,6 +538,7 @@ const hi: Dict = {
   authDesc:
     "अपनी बातचीत और मन की यात्रा सुरक्षित रखने के लिए लॉग इन करें।",
   google: "Google से जारी रखें",
+  kakao: "Kakao से जारी रखें",
   email: "ईमेल",
   password: "पासवर्ड",
   name: "नाम (वैकल्पिक)",
@@ -614,6 +621,7 @@ const zh: Dict = {
   authTitle: "在分享你的内心之前，我们先准备一个安全的空间。",
   authDesc: "登录后可安全保存你的对话和心灵旅程。",
   google: "使用 Google 继续",
+  kakao: "使用 Kakao 继续",
   email: "邮箱",
   password: "密码",
   name: "姓名（可选）",
