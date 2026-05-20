@@ -8,7 +8,7 @@ import { DonateButton } from "@/components/chat/donate-button";
 import { AccountMenu } from "@/components/chat/account-menu";
 import { MessageBubble } from "@/components/chat/message-bubble";
 import { ChatInput } from "@/components/chat/chat-input";
-import { Loader2 } from "lucide-react";
+import { Loader2, ChevronDown } from "lucide-react";
 
 export function ChatWindow({
   email,
@@ -28,10 +28,52 @@ export function ChatWindow({
   const { t, lang } = useLanguage();
   const scrollRef = React.useRef<HTMLDivElement>(null);
 
-  React.useEffect(() => {
+  // ── Smart auto-scroll ────────────────────────────────────────────────
+  // The reader is "pinned" if they are within 80px of the bottom. While
+  // pinned, new chunks of an assistant reply keep the view at the bottom.
+  // If they scroll up to re-read, we stop snapping; auto-scroll resumes
+  // only when they return near the bottom (or send a new message).
+  const PIN_THRESHOLD = 80;
+  const isPinnedRef = React.useRef(true);
+  const [showJumpBtn, setShowJumpBtn] = React.useState(false);
+  const prevUserCountRef = React.useRef(0);
+
+  const updatePinned = React.useCallback(() => {
     const el = scrollRef.current;
-    if (el) el.scrollTop = el.scrollHeight;
-  }, [messages, loadingMsgs]);
+    if (!el) return;
+    const distance = el.scrollHeight - el.scrollTop - el.clientHeight;
+    const pinned = distance < PIN_THRESHOLD;
+    isPinnedRef.current = pinned;
+    setShowJumpBtn(!pinned);
+  }, []);
+
+  const scrollToBottom = React.useCallback((smooth = false) => {
+    const el = scrollRef.current;
+    if (!el) return;
+    el.scrollTo({ top: el.scrollHeight, behavior: smooth ? "smooth" : "auto" });
+    isPinnedRef.current = true;
+    setShowJumpBtn(false);
+  }, []);
+
+  // Whenever messages change, decide whether to follow the bottom.
+  React.useEffect(() => {
+    // Force scroll when the USER just sent a new message — they should
+    // always see their own message and the incoming reply.
+    const userCount = messages.reduce(
+      (n, m) => n + (m.role === "user" ? 1 : 0),
+      0
+    );
+    if (userCount > prevUserCountRef.current) {
+      prevUserCountRef.current = userCount;
+      scrollToBottom(false);
+      return;
+    }
+    prevUserCountRef.current = userCount;
+
+    // Otherwise (assistant streaming, history load, etc.): only follow if
+    // the reader is currently pinned to the bottom.
+    if (isPinnedRef.current) scrollToBottom(false);
+  }, [messages, loadingMsgs, scrollToBottom]);
 
   const empty = messages.length === 0;
   const lastPendingEmpty =
@@ -58,10 +100,12 @@ export function ChatWindow({
       </header>
 
       {/* Body */}
-      <div
-        ref={scrollRef}
-        className="selah-scroll flex-1 overflow-y-auto px-4 py-6"
-      >
+      <div className="relative flex-1 overflow-hidden">
+        <div
+          ref={scrollRef}
+          onScroll={updatePinned}
+          className="selah-scroll h-full overflow-y-auto px-4 py-6"
+        >
         {loadingMsgs ? (
           <div className="flex h-full items-center justify-center">
             <Loader2 className="h-6 w-6 animate-spin text-selah-gold/70" />
@@ -107,6 +151,18 @@ export function ChatWindow({
               </div>
             )}
           </>
+        )}
+        </div>
+
+        {/* Floating "jump to latest" button — shows when user has scrolled up */}
+        {showJumpBtn && (
+          <button
+            onClick={() => scrollToBottom(true)}
+            aria-label="Scroll to latest"
+            className="absolute bottom-4 left-1/2 z-10 flex h-9 w-9 -translate-x-1/2 items-center justify-center rounded-full border border-selah-gold/30 bg-selah-bg1/90 text-selah-gold shadow-lg backdrop-blur-sm transition-colors hover:border-selah-gold/60 hover:bg-selah-bg1"
+          >
+            <ChevronDown className="h-4 w-4" />
+          </button>
         )}
       </div>
 
