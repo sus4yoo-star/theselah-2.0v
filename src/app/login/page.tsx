@@ -77,6 +77,7 @@ function LoginInner() {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "kakao",
         options: {
+          scopes: "profile_nickname",
           redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(
             next
           )}`,
