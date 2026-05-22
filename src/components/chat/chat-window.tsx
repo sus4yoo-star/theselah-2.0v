@@ -4,7 +4,7 @@ import * as React from "react";
 import type { ChatMessage } from "@/lib/types";
 import { useLanguage } from "@/components/language-provider";
 import { LanguageSelector } from "@/components/language-selector";
-import { DonateButton } from "@/components/chat/donate-button";
+import { PrayerMenu } from "@/components/chat/prayer-menu";
 import { AccountMenu } from "@/components/chat/account-menu";
 import { MessageBubble } from "@/components/chat/message-bubble";
 import { ChatInput } from "@/components/chat/chat-input";
@@ -92,7 +92,7 @@ export function ChatWindow({
             SELAH
           </div>
           <div className="ml-auto flex items-center gap-2">
-            <DonateButton />
+            <PrayerMenu />
             <LanguageSelector compact />
             <AccountMenu email={email} />
           </div>

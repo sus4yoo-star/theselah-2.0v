@@ -1,8 +1,11 @@
 import type { Metadata, Viewport } from "next";
+import { cookies } from "next/headers";
 import "./globals.css";
 import { LanguageProvider } from "@/components/language-provider";
 import { ServiceWorker } from "@/components/service-worker";
 import { InstallPrompt } from "@/components/install-prompt";
+import { normalizeLang } from "@/lib/i18n";
+import type { LangCode } from "@/lib/types";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://amov-selah2.netlify.app"),
@@ -68,15 +71,23 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  // Read the language cookie on the server so SSR already renders in the
+  // user's chosen language (prevents the English flash for Korean users).
+  const cookieStore = await cookies();
+  const cookieLang = cookieStore.get("selah_lang")?.value;
+  const initialLang: LangCode = cookieLang
+    ? normalizeLang(cookieLang)
+    : "ko";
+
   return (
-    <html lang="ko" suppressHydrationWarning>
+    <html lang={initialLang} suppressHydrationWarning>
       <body className="min-h-dvh antialiased">
-        <LanguageProvider>
+        <LanguageProvider initialLang={initialLang}>
           {children}
           <ServiceWorker />
           <InstallPrompt />

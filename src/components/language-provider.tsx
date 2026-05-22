@@ -13,6 +13,27 @@ interface LanguageContextValue {
 const LanguageContext = React.createContext<LanguageContextValue | null>(null);
 
 const STORAGE_KEY = "selah_lang";
+// One full year — enough that returning users always get SSR in their language.
+const COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
+
+function readCookie(name: string): string | null {
+  if (typeof document === "undefined") return null;
+  const match = document.cookie.match(
+    new RegExp("(^|;\\s*)" + name + "=([^;]*)")
+  );
+  return match ? decodeURIComponent(match[2]) : null;
+}
+
+function writeCookie(name: string, value: string) {
+  if (typeof document === "undefined") return;
+  document.cookie =
+    name +
+    "=" +
+    encodeURIComponent(value) +
+    "; Max-Age=" +
+    COOKIE_MAX_AGE +
+    "; Path=/; SameSite=Lax";
+}
 
 export function LanguageProvider({
   children,
@@ -21,27 +42,43 @@ export function LanguageProvider({
   children: React.ReactNode;
   initialLang?: LangCode;
 }) {
-  const [lang, setLangState] = React.useState<LangCode>(initialLang || "en");
+  // Default to "ko" (matches <html lang="ko"> in the root layout) so the
+  // first server-rendered HTML lands in Korean instead of flashing English
+  // for Korean users. When the server reads a `selah_lang` cookie it passes
+  // it in via `initialLang` and SSR is already in that language.
+  const [lang, setLangState] = React.useState<LangCode>(
+    initialLang ? normalizeLang(initialLang) : "ko"
+  );
 
-  // Resolve preferred language on mount: stored → profile → browser.
+  // After mount: if the server didn't already pre-render in the right
+  // language, reconcile from localStorage → cookie → navigator.
   React.useEffect(() => {
-    const stored =
-      typeof window !== "undefined"
-        ? (localStorage.getItem(STORAGE_KEY) as LangCode | null)
-        : null;
-    if (stored) {
-      setLangState(normalizeLang(stored));
-      return;
+    // If the server already gave us an explicit language, trust it.
+    if (initialLang) return;
+
+    let next: LangCode | null = null;
+
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (stored) next = normalizeLang(stored);
+    } catch {
+      /* localStorage may throw in private mode */
     }
-    if (initialLang) {
-      setLangState(initialLang);
-      return;
+
+    if (!next) {
+      const fromCookie = readCookie(STORAGE_KEY);
+      if (fromCookie) next = normalizeLang(fromCookie);
     }
-    const nav =
-      typeof navigator !== "undefined"
-        ? navigator.language || (navigator.languages && navigator.languages[0])
-        : "en";
-    setLangState(normalizeLang(nav));
+
+    if (!next && typeof navigator !== "undefined") {
+      const nav =
+        navigator.language ||
+        (navigator.languages && navigator.languages[0]) ||
+        "ko";
+      next = normalizeLang(nav);
+    }
+
+    if (next && next !== lang) setLangState(next);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -55,7 +92,14 @@ export function LanguageProvider({
     const norm = normalizeLang(l);
     setLangState(norm);
     if (typeof window !== "undefined") {
-      localStorage.setItem(STORAGE_KEY, norm);
+      try {
+        localStorage.setItem(STORAGE_KEY, norm);
+      } catch {
+        /* ignore */
+      }
+      // Mirror to a cookie so the next SSR render is already in this
+      // language (no English flash for returning visitors).
+      writeCookie(STORAGE_KEY, norm);
     }
   }, []);
 
