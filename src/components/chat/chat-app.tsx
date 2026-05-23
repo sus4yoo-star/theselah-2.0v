@@ -43,7 +43,7 @@ export function ChatApp({
   initialSessions: ChatSession[];
   profile: Profile | null;
 }) {
-  const { t, lang, setLang } = useLanguage();
+  const { t, lang } = useLanguage();
 
   const [sessions, setSessions] =
     React.useState<ChatSession[]>(initialSessions);
@@ -52,13 +52,14 @@ export function ChatApp({
   const [streaming, setStreaming] = React.useState(false);
   const [loadingMsgs, setLoadingMsgs] = React.useState(false);
   const [sidebarOpen, setSidebarOpen] = React.useState(false);
-  // Apply the saved profile language once on mount.
-  React.useEffect(() => {
-    if (profile?.language) setLang(profile.language as LangCode);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Persist language preference to the profile (best effort).
+  // Keep profile.language in sync with the UI language. The browser
+  // preference (cookie + localStorage, set by LanguageProvider) is the
+  // source of truth — NOT profile.language. For OAuth signups (Kakao /
+  // Google) the DB trigger defaults profile.language to 'en' because no
+  // language metadata is passed in the OAuth call, so pulling FROM profile
+  // here would constantly flip the UI back to English for Korean users.
+  // We push the other way instead: whenever the UI language differs from
+  // what the profile holds, update the profile to match.
   React.useEffect(() => {
     if (!profile || profile.language === lang) return;
     const supabase = createClient();

@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import type { LangCode } from "@/lib/types";
-import { getDict, normalizeLang, type Dict } from "@/lib/i18n";
+import { getDict, normalizeLang, isRTL, type Dict } from "@/lib/i18n";
 
 interface LanguageContextValue {
   lang: LangCode;
@@ -51,7 +51,9 @@ export function LanguageProvider({
   );
 
   // After mount: if the server didn't already pre-render in the right
-  // language, reconcile from localStorage → cookie → navigator.
+  // language, reconcile from localStorage → cookie → navigator and PERSIST
+  // the result so subsequent loads (and the profile-sync logic in ChatApp)
+  // see a consistent preference signal.
   React.useEffect(() => {
     // If the server already gave us an explicit language, trust it.
     if (initialLang) return;
@@ -78,13 +80,24 @@ export function LanguageProvider({
       next = normalizeLang(nav);
     }
 
-    if (next && next !== lang) setLangState(next);
+    if (next) {
+      // Persist so the next SSR render already lands in this language,
+      // and so profile-sync can use it as the source of truth.
+      try {
+        localStorage.setItem(STORAGE_KEY, next);
+      } catch {
+        /* ignore */
+      }
+      writeCookie(STORAGE_KEY, next);
+      if (next !== lang) setLangState(next);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   React.useEffect(() => {
     if (typeof document !== "undefined") {
       document.documentElement.lang = lang;
+      document.documentElement.dir = isRTL(lang) ? "rtl" : "ltr";
     }
   }, [lang]);
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, Suspense } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
 import { useLanguage } from "@/components/language-provider";
 import { LanguageSelector } from "@/components/language-selector";
@@ -12,7 +12,6 @@ import { Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 
 function LoginInner() {
   const { t, lang } = useLanguage();
-  const router = useRouter();
   const params = useSearchParams();
   const next = params.get("next") || "/chat";
 
@@ -131,8 +130,10 @@ function LoginInner() {
           }
         }
         setSuccess(t.signup + " ✓");
-        router.replace(next);
-        router.refresh();
+        // Hard navigation guarantees the session cookies that Supabase just
+        // committed are included in the next request, preventing the
+        // "logged in but middleware redirects back to /login" race.
+        window.location.assign(next);
         return;
       }
 
@@ -146,13 +147,13 @@ function LoginInner() {
         return;
       }
       setSuccess(t.login + " ✓");
-      router.replace(next);
-      router.refresh();
+      // Hard navigation (see comment above): avoids the SSR session race.
+      window.location.assign(next);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Sign-in failed");
       setLoading(false);
     }
-  }, [configured, mode, validate, email, password, name, lang, next, router, t]);
+  }, [configured, mode, validate, email, password, name, lang, next, t]);
 
   return (
     <main className="selah-aurora flex min-h-dvh flex-col items-center justify-center overflow-y-auto px-5 py-10 selah-scroll">

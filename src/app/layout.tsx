@@ -4,7 +4,7 @@ import "./globals.css";
 import { LanguageProvider } from "@/components/language-provider";
 import { ServiceWorker } from "@/components/service-worker";
 import { InstallPrompt } from "@/components/install-prompt";
-import { normalizeLang } from "@/lib/i18n";
+import { normalizeLang, isRTL } from "@/lib/i18n";
 import type { LangCode } from "@/lib/types";
 
 export const metadata: Metadata = {
@@ -85,7 +85,11 @@ export default async function RootLayout({
     : "ko";
 
   return (
-    <html lang={initialLang} suppressHydrationWarning>
+    <html
+      lang={initialLang}
+      dir={isRTL(initialLang) ? "rtl" : "ltr"}
+      suppressHydrationWarning
+    >
       <body className="min-h-dvh antialiased">
         <LanguageProvider initialLang={initialLang}>
           {children}
