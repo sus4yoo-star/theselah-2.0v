@@ -118,3 +118,59 @@ Other items to verify before going live:
 - Removed 화가 나요 / 실패한 것 같아요.
 - Added 🥹 감사 기도를 드리고 싶어요 / ✨ 은혜로운 일이 있어요.
 - English equivalents updated symmetrically.
+
+---
+
+## 2026.05.27 — Round 5 (senior + share + privacy)
+
+### New components
+- **Splash** (`src/components/splash.tsx`) — full-screen logo fade replaces the
+  white loading flash on first paint. SSR-rendered, inline keyframes so it
+  works before any CSS bundle finishes downloading.
+- **ViewSettingsProvider** + **ViewSettingsMenu** — bundles font-size (sm/md/lg),
+  high-contrast toggle, and TTS auto-speak into one header dropdown.
+- **IntroTour** — 3-step guide shown once per device.
+- **PinGate** — optional 4-digit privacy lock (FNV-1a hash, sessionStorage).
+- **CrossLinkCard** — soft cross-promo from SELAH ↔ MANNA after 3+ chats.
+- **PrayerShareActions** rebuilt:
+  - Favorite ⭐ (localStorage, sidebar Favorites tab)
+  - TTS play/stop + auto-read on assistant arrival
+  - "Save as image" → 1080×1080 PNG card (no html2canvas dependency, pure SVG)
+  - Web Share (with file when supported → IG Story / KakaoTalk image post)
+  - Copy
+
+### New routes
+- `/today` — daily verse / one-line reflection card with share button.
+
+### New libraries
+- `lib/tts.ts` — Web Speech Synthesis wrapper, 17-language BCP-47 mapping.
+- `lib/favorites.ts` — localStorage favorites with 200-entry cap.
+- `lib/auto-delete.ts` — never / 30d / 90d preference + threshold helper.
+- `lib/share-card.ts` — SVG → PNG card builder, CJK-aware text wrapping.
+
+### Sidebar
+- "전체 대화" / "즐겨찾기" tab toggle.
+- "이 대화 잊어주세요" menu item (extra confirmation copy).
+
+### High-contrast mode
+- `<html data-contrast="high">` triggers overrides in `globals.css`.
+- Cream text → pure white, backgrounds → near-black, borders → 35% white.
+
+### Service worker
+- Bumped to `selah-shell-v3` / `manna-shell-v3` → forces fresh shell pull.
+- Pre-caches `/`, `/today`, manifest, splash logo, app icons.
+- Stale-while-revalidate for all GETs except `/api`, `/auth`, supabase, and
+  `_next/data`.
+
+### Manifest
+- SELAH `background_color`/`theme_color` aligned with layout body color
+  (`#07111f`) so the PWA install splash doesn't flash a different navy.
+
+### Deferred (next round)
+- PDF journal export (jsPDF dep)
+- Mood-over-time chart (recharts dep)
+- Kakao SDK deep integration (App Key)
+- Push reminders (notification infra)
+- Sentry telemetry (env config)
+- Rate-limit & model auto-fallback (server-side)
+- Anonymous share-count counter (DB schema)

@@ -9,6 +9,7 @@ import {
   Check,
   X,
   Search,
+  Star,
 } from "lucide-react";
 import type { ChatSession } from "@/lib/types";
 import { useLanguage } from "@/components/language-provider";
@@ -16,6 +17,7 @@ import { getFeatureStrings } from "@/lib/feature-strings";
 import { Logo } from "@/components/logo";
 import { AmovFooter } from "@/components/amov-footer";
 import { sessionIcon } from "@/lib/session-icon";
+import { loadFavorites, removeFavorite, type FavoriteEntry } from "@/lib/favorites";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -46,6 +48,16 @@ export function ChatSidebar({
   const [editingId, setEditingId] = React.useState<string | null>(null);
   const [draft, setDraft] = React.useState("");
   const [query, setQuery] = React.useState("");
+  const [tab, setTab] = React.useState<"all" | "favorites">("all");
+  const [favorites, setFavorites] = React.useState<FavoriteEntry[]>([]);
+
+  // Refresh favorites whenever the user opens that tab — they can grow
+  // outside this component via the message bubble star button.
+  React.useEffect(() => {
+    if (tab === "favorites") {
+      setFavorites(loadFavorites());
+    }
+  }, [tab]);
 
   const filtered = React.useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -91,6 +103,36 @@ export function ChatSidebar({
       </div>
 
       {sessions.length > 0 && (
+        <div className="mt-3 flex gap-1.5 px-3">
+          <button
+            type="button"
+            onClick={() => setTab("all")}
+            className={cn(
+              "flex-1 rounded-lg border px-3 py-1.5 text-[12px] transition-colors",
+              tab === "all"
+                ? "border-selah-gold/40 bg-selah-gold/[0.08] text-selah-gold"
+                : "border-white/[0.06] text-selah-cream3 hover:text-selah-cream"
+            )}
+          >
+            {fs.showAllChats}
+          </button>
+          <button
+            type="button"
+            onClick={() => setTab("favorites")}
+            className={cn(
+              "flex-1 rounded-lg border px-3 py-1.5 text-[12px] transition-colors inline-flex items-center justify-center gap-1.5",
+              tab === "favorites"
+                ? "border-selah-gold/40 bg-selah-gold/[0.08] text-selah-gold"
+                : "border-white/[0.06] text-selah-cream3 hover:text-selah-cream"
+            )}
+          >
+            <Star className="h-3 w-3" />
+            {fs.showFavorites}
+          </button>
+        </div>
+      )}
+
+      {tab === "all" && sessions.length > 0 && (
         <div className="mt-3 px-3">
           <div className="relative">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-selah-cream3" />
@@ -116,21 +158,59 @@ export function ChatSidebar({
       )}
 
       <div className="mt-4 px-5 text-[11px] font-medium uppercase tracking-[0.14em] text-selah-cream3">
-        {t.history}
+        {tab === "all" ? t.history : fs.favoritesTitle}
       </div>
 
       <nav className="selah-scroll mt-2 flex-1 space-y-0.5 overflow-y-auto px-2.5 pb-4">
-        {sessions.length === 0 ? (
-          <p className="px-3 py-6 text-center text-[13px] leading-relaxed text-selah-cream3/70">
-            {t.noSessions}
-          </p>
-        ) : filtered.length === 0 ? (
-          <p className="px-3 py-6 text-center text-[13px] leading-relaxed text-selah-cream3/70">
-            {fs.searchNoResults}
-          </p>
-        ) : null}
+        {tab === "favorites" ? (
+          favorites.length === 0 ? (
+            <p className="px-3 py-6 text-center text-[13px] leading-relaxed text-selah-cream3/70">
+              {fs.favoritesEmpty}
+            </p>
+          ) : (
+            favorites.map((f) => (
+              <div
+                key={f.id}
+                className="group flex items-start gap-2 rounded-xl px-3 py-2.5 text-[13px] leading-relaxed text-selah-cream2 transition-colors hover:bg-white/[0.04]"
+              >
+                <Star className="mt-0.5 h-3.5 w-3.5 shrink-0 fill-selah-gold text-selah-gold" />
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (f.sessionId) onSelect(f.sessionId);
+                  }}
+                  className="line-clamp-3 flex-1 text-left"
+                  title={f.content}
+                >
+                  {f.content}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    removeFavorite(f.id);
+                    setFavorites(loadFavorites());
+                  }}
+                  aria-label={fs.unfavorite}
+                  className="opacity-0 transition-opacity group-hover:opacity-100 text-selah-cream3 hover:text-selah-cream"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            ))
+          )
+        ) : (
+          <>
+            {sessions.length === 0 ? (
+              <p className="px-3 py-6 text-center text-[13px] leading-relaxed text-selah-cream3/70">
+                {t.noSessions}
+              </p>
+            ) : filtered.length === 0 ? (
+              <p className="px-3 py-6 text-center text-[13px] leading-relaxed text-selah-cream3/70">
+                {fs.searchNoResults}
+              </p>
+            ) : null}
 
-        {filtered.map((s) => {
+            {filtered.map((s) => {
           const active = s.id === activeId;
           const editing = editingId === s.id;
           return (
@@ -207,6 +287,15 @@ export function ChatSidebar({
                         <Trash2 className="h-4 w-4" />
                         {t.delete}
                       </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onSelect={() => {
+                          if (confirm(fs.forgetConfirm)) onDelete(s.id);
+                        }}
+                        className="text-red-300 focus:text-red-200"
+                      >
+                        <X className="h-4 w-4" />
+                        {fs.forgetConversation}
+                      </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </>
@@ -214,6 +303,8 @@ export function ChatSidebar({
             </div>
           );
         })}
+          </>
+        )}
       </nav>
 
       <div className="border-t border-white/[0.04] px-3 py-3">

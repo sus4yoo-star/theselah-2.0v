@@ -1,31 +1,75 @@
 "use client";
 
 import * as React from "react";
-import { Share2, Copy, Check } from "lucide-react";
+import { Share2, Copy, Check, Volume2, Square, Image as ImageIcon, Star } from "lucide-react";
 import type { ChatMessage, LangCode } from "@/lib/types";
 import { parseAI, stripTagsForLive } from "@/lib/format";
 import { bibleMeta } from "@/lib/bible";
 import { getFeatureStrings } from "@/lib/feature-strings";
+import { ttsSpeak, ttsStop, ttsSupported } from "@/lib/tts";
+import { useViewSettings } from "@/components/view-settings-provider";
+import { isFavorited, toggleFavorite } from "@/lib/favorites";
+import { buildCardSvg, svgToPngBlob, downloadBlob } from "@/lib/share-card";
 import { cn } from "@/lib/utils";
 
 /**
- * Small share/copy widget pinned to the prayer section.
+ * Expanded action bar pinned to the prayer / "당신에게 건네는 말" section.
  *
- * Uses the Web Share API on mobile (so the user gets the native share
- * sheet — KakaoTalk, Messages, etc.) and falls back to clipboard on
- * desktop / unsupported browsers.
+ *  - Web Share (mobile native share sheet — KakaoTalk, IG, Messages…)
+ *  - Copy to clipboard
+ *  - Save as 1080×1080 PNG card (Instagram-ready, no html2canvas needed)
+ *  - Read aloud (Web Speech Synthesis) — toggle play/stop
+ *  - Favorite (localStorage; appears in the sidebar Favorites tab)
+ *
+ * Auto-TTS: when `ttsAuto` is on in view-settings, the message reads
+ * itself once on first render (after streaming completes).
  */
 function PrayerShareActions({
+  messageId,
+  sessionId,
   text,
   reference,
   lang,
+  variant,
+  brandLabel,
 }: {
+  messageId: string;
+  sessionId: string | null;
   text: string;
   reference?: string;
   lang: LangCode;
+  variant: "selah" | "manna";
+  brandLabel: string;
 }) {
   const fs = getFeatureStrings(lang);
+  const { ttsAuto } = useViewSettings();
   const [copied, setCopied] = React.useState(false);
+  const [imageSaved, setImageSaved] = React.useState(false);
+  const [speaking, setSpeaking] = React.useState(false);
+  const [hasTts, setHasTts] = React.useState(false);
+  const [fav, setFav] = React.useState(false);
+  const autoSpokeRef = React.useRef(false);
+
+  React.useEffect(() => {
+    setHasTts(ttsSupported());
+    setFav(isFavorited(messageId));
+  }, [messageId]);
+
+  // Auto-read once when the message arrives, if user enabled auto TTS.
+  React.useEffect(() => {
+    if (!ttsAuto || !text || autoSpokeRef.current) return;
+    if (!ttsSupported()) return;
+    autoSpokeRef.current = true;
+    setSpeaking(true);
+    ttsSpeak(text, lang, {
+      onEnd: () => setSpeaking(false),
+      onError: () => setSpeaking(false),
+    });
+    return () => {
+      ttsStop();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ttsAuto, text]);
 
   const composed = React.useMemo(() => {
     const body = text.trim();
@@ -64,13 +108,122 @@ function PrayerShareActions({
     try {
       await navigator.share({ text: composed });
     } catch {
-      // User cancelled or share failed silently; fall back to copy.
       handleCopy();
     }
   };
 
+  const handleSaveImage = async () => {
+    try {
+      const svg = buildCardSvg({
+        variant,
+        brandLabel,
+        tagline: variant === "selah" ? "Pause before you respond" : "Walk with you",
+        body: text,
+        reference,
+        footer: "Powered by AMOV",
+      });
+      const blob = await svgToPngBlob(svg, 1080);
+
+      // Try Web Share with the file first (mobile → IG Story / KakaoTalk).
+      const file = new File([blob], `${variant}-${Date.now()}.png`, {
+        type: "image/png",
+      });
+      const shareData: any = { files: [file] };
+      const canFileShare =
+        typeof navigator.share === "function" &&
+        typeof (navigator as any).canShare === "function" &&
+        (navigator as any).canShare(shareData);
+      if (canFileShare) {
+        try {
+          await (navigator as any).share(shareData);
+          setImageSaved(true);
+          setTimeout(() => setImageSaved(false), 1600);
+          return;
+        } catch {
+          /* user cancelled — fall through to download */
+        }
+      }
+      downloadBlob(blob, `${variant}-${Date.now()}.png`);
+      setImageSaved(true);
+      setTimeout(() => setImageSaved(false), 1600);
+    } catch {
+      /* ignore */
+    }
+  };
+
+  const handleTts = () => {
+    if (!hasTts) return;
+    if (speaking) {
+      ttsStop();
+      setSpeaking(false);
+      return;
+    }
+    setSpeaking(true);
+    ttsSpeak(text, lang, {
+      onEnd: () => setSpeaking(false),
+      onError: () => setSpeaking(false),
+    });
+  };
+
+  const handleFav = () => {
+    const now = toggleFavorite({
+      id: messageId,
+      sessionId,
+      content: text,
+      language: lang,
+      savedAt: Date.now(),
+    });
+    setFav(now);
+  };
+
   return (
-    <div className="mt-3 flex items-center justify-end gap-2 border-t border-amber-200/10 pt-2.5">
+    <div className="mt-3 flex flex-wrap items-center justify-end gap-2 border-t border-amber-200/10 pt-2.5">
+      <button
+        type="button"
+        onClick={handleFav}
+        aria-label={fav ? fs.unfavorite : fs.favorite}
+        title={fav ? fs.unfavorite : fs.favorite}
+        className={cn(
+          "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[12px] transition-colors",
+          fav
+            ? "border-amber-200/60 bg-amber-200/[0.12] text-amber-100"
+            : "border-amber-200/25 text-amber-200/90 hover:bg-amber-200/[0.06]"
+        )}
+      >
+        <Star className={cn("h-3.5 w-3.5", fav && "fill-current")} />
+      </button>
+
+      {hasTts && (
+        <button
+          type="button"
+          onClick={handleTts}
+          aria-label={speaking ? fs.ttsStop : fs.ttsPlay}
+          title={speaking ? fs.ttsStop : fs.ttsPlay}
+          className={cn(
+            "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[12px] transition-colors",
+            speaking
+              ? "border-amber-200/60 bg-amber-200/[0.12] text-amber-100 animate-pulse"
+              : "border-amber-200/25 text-amber-200/90 hover:bg-amber-200/[0.06]"
+          )}
+        >
+          {speaking ? (
+            <Square className="h-3.5 w-3.5" />
+          ) : (
+            <Volume2 className="h-3.5 w-3.5" />
+          )}
+          {speaking ? fs.ttsStop : fs.ttsPlay}
+        </button>
+      )}
+
+      <button
+        type="button"
+        onClick={handleSaveImage}
+        className="inline-flex items-center gap-1.5 rounded-full border border-amber-200/25 px-3 py-1 text-[12px] text-amber-200/90 transition-colors hover:bg-amber-200/[0.06]"
+      >
+        {imageSaved ? <Check className="h-3.5 w-3.5" /> : <ImageIcon className="h-3.5 w-3.5" />}
+        {imageSaved ? fs.imageSaved : fs.saveAsImage}
+      </button>
+
       {canShare && (
         <button
           type="button"
@@ -174,9 +327,11 @@ function labels(lang: LangCode) {
 export function MessageBubble({
   message,
   lang,
+  sessionId = null,
 }: {
   message: ChatMessage;
   lang: LangCode;
+  sessionId?: string | null;
 }) {
   if (message.role === "user") {
     return (
@@ -305,9 +460,13 @@ export function MessageBubble({
             </p>
             {!message.pending && (
               <PrayerShareActions
+                messageId={message.id}
+                sessionId={sessionId}
                 text={parsed.prayer}
                 reference={parsed.scripture?.ref}
                 lang={lang}
+                variant="selah"
+                brandLabel="SELAH"
               />
             )}
           </Section>

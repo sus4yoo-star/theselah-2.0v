@@ -130,7 +130,8 @@ export function ChatInput({
 
   const stopListening = React.useCallback(() => {
     try {
-      recognitionRef.current?.stop?.();
+      const rec = recognitionRef.current;
+      if (rec && typeof rec.stop === "function") rec.stop();
     } catch {
       /* ignore */
     }

@@ -105,3 +105,35 @@
     @apply animate-blink;
   }
 }
+
+/* High-contrast accessibility mode — applied when ViewSettingsProvider
+ * sets <html data-contrast="high">. Pushes cream colors to pure white,
+ * deepens the background, and bumps borders so seniors with weaker
+ * eyes can still read chat content comfortably. */
+html[data-contrast="high"] body {
+  background: #000 !important;
+}
+html[data-contrast="high"] .text-selah-cream,
+html[data-contrast="high"] .text-selah-cream2,
+html[data-contrast="high"] .text-selah-cream3,
+html[data-contrast="high"] .text-amber-200\/90 {
+  color: #ffffff !important;
+}
+html[data-contrast="high"] .text-selah-gold {
+  color: #ffd97a !important;
+}
+html[data-contrast="high"] .bg-selah-bg,
+html[data-contrast="high"] .bg-selah-bg1,
+html[data-contrast="high"] .bg-selah-bg1\/95,
+html[data-contrast="high"] .bg-selah-bg1\/80,
+html[data-contrast="high"] .bg-selah-bg1\/70,
+html[data-contrast="high"] .bg-selah-bg2,
+html[data-contrast="high"] .bg-selah-bg2\/40,
+html[data-contrast="high"] .bg-selah-bg3,
+html[data-contrast="high"] .bg-selah-bg3\/70 {
+  background-color: #050505 !important;
+}
+html[data-contrast="high"] .border-white\/10,
+html[data-contrast="high"] .border-white\/\[0\.06\] {
+  border-color: rgba(255, 255, 255, 0.35) !important;
+}

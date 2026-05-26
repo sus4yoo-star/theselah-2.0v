@@ -19,8 +19,11 @@ import {
 } from "@/lib/chat-data";
 import { ChatSidebar } from "@/components/chat/chat-sidebar";
 import { ChatWindow } from "@/components/chat/chat-window";
-import { FontSizeProvider } from "@/components/font-size-provider";
+import { IntroTour } from "@/components/chat/intro-tour";
+import { PinGate } from "@/components/chat/pin-gate";
+import { ViewSettingsProvider } from "@/components/view-settings-provider";
 import { detectCrisis } from "@/lib/crisis-detect";
+import { getAutoDelete, autoDeleteThresholdMs } from "@/lib/auto-delete";
 import { cn } from "@/lib/utils";
 
 function uid() {
@@ -73,6 +76,27 @@ export function ChatApp({
       .then(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lang]);
+
+  // Auto-delete sweep: on mount, prune chat sessions older than the user's
+  // chosen threshold (30d / 90d / never). Runs once per session refresh.
+  // We don't await — failures stay silent so chat never breaks.
+  React.useEffect(() => {
+    const pref = getAutoDelete();
+    const thr = autoDeleteThresholdMs(pref);
+    if (!thr) return;
+    const cutoff = Date.now() - thr;
+    const toPrune = sessions.filter(
+      (s) => new Date(s.updated_at).getTime() < cutoff
+    );
+    if (toPrune.length === 0) return;
+    setSessions((prev) =>
+      prev.filter((s) => new Date(s.updated_at).getTime() >= cutoff)
+    );
+    toPrune.forEach((s) => {
+      deleteSession(s.id).catch(() => {});
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const newChat = () => {
     setActiveId(null);
@@ -274,7 +298,8 @@ export function ChatApp({
   };
 
   return (
-    <FontSizeProvider>
+    <PinGate>
+    <ViewSettingsProvider>
     <div className="flex h-dvh overflow-hidden bg-selah-bg">
       {/* Sidebar — desktop */}
       <aside className="hidden w-72 shrink-0 border-r border-white/[0.06] lg:block">
@@ -330,6 +355,8 @@ export function ChatApp({
           onSend={sendMessage}
           crisisVisible={crisisVisible}
           onDismissCrisis={() => setCrisisVisible(false)}
+          sessionCount={sessions.length}
+          currentSessionId={activeId}
           menuButton={
             <button
               onClick={() => setSidebarOpen(true)}
@@ -342,6 +369,8 @@ export function ChatApp({
         />
       </div>
     </div>
-    </FontSizeProvider>
+    <IntroTour />
+    </ViewSettingsProvider>
+    </PinGate>
   );
 }

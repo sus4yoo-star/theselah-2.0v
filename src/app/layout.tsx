@@ -4,6 +4,7 @@ import "./globals.css";
 import { LanguageProvider } from "@/components/language-provider";
 import { ServiceWorker } from "@/components/service-worker";
 import { InstallPrompt } from "@/components/install-prompt";
+import { Splash } from "@/components/splash";
 import { normalizeLang, isRTL } from "@/lib/i18n";
 import type { LangCode } from "@/lib/types";
 
@@ -96,7 +97,11 @@ export default async function RootLayout({
       dir={isRTL(initialLang) ? "rtl" : "ltr"}
       suppressHydrationWarning
     >
-      <body className="min-h-dvh antialiased">
+      <body
+        className="min-h-dvh antialiased"
+        style={{ backgroundColor: "#07111f" }}
+      >
+        <Splash />
         <LanguageProvider initialLang={initialLang}>
           {children}
           <ServiceWorker />

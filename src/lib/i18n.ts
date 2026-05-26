@@ -10,6 +10,16 @@ export const LANG_OPTIONS: { code: LangCode; label: string }[] = [
   { code: "zh", label: "中文" },
 ];
 
+/**
+ * Right-to-left language detection. SELAH currently ships ko/en/th/es/pt/hi/zh —
+ * none of which are RTL — but the helper is exported so the root layout can
+ * call it safely without an import error. Add Arabic / Hebrew / Farsi here
+ * when SELAH grows to those audiences.
+ */
+export function isRTL(_lang: LangCode): boolean {
+  return false;
+}
+
 export interface Dict {
   tagline: string;
   introTitle: string;
