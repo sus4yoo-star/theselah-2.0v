@@ -79,11 +79,16 @@ export default async function RootLayout({
 }) {
   // Read the language cookie on the server so SSR already renders in the
   // user's chosen language (prevents the English flash for Korean users).
-  const cookieStore = await cookies();
-  const cookieLang = cookieStore.get("selah_lang")?.value;
-  const initialLang: LangCode = cookieLang
-    ? normalizeLang(cookieLang)
-    : "ko";
+  // Wrapped in try/catch so a misbehaving cookie store can never bring the
+  // whole site down with a server-side exception — we just fall back to Korean.
+  let initialLang: LangCode = "ko";
+  try {
+    const cookieStore = await cookies();
+    const cookieLang = cookieStore.get("selah_lang")?.value;
+    if (cookieLang) initialLang = normalizeLang(cookieLang);
+  } catch {
+    /* keep the "ko" default */
+  }
 
   return (
     <html

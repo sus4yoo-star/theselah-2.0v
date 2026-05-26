@@ -95,3 +95,26 @@ Other items to verify before going live:
 - Multilingual crisis hotlines beyond KR/EN — easy to add country-by-country in `hotlinesFor()`
 - Pause-and-resume voice (current implementation is single-turn)
 - Server-side crisis logging — intentional. Detection stays client-side for privacy.
+
+---
+
+## 2026.05.27 evening fixes (after first user feedback)
+
+### 1. SSR error recovery
+- `src/app/error.tsx` added — root error boundary. Replaces the white
+  "Application error: a server-side exception has occurred" screen with
+  a calm on-brand recovery card and a "다시 시도" button.
+- `src/app/layout.tsx` cookies() access wrapped in try/catch — a
+  misbehaving cookie store can no longer take the whole site down.
+- See `DIAGNOSTIC_SSR_ERROR.md` for the full debug procedure.
+
+### 2. Font-size now scales the whole chat area
+- Welcome heading, description, examples buttons, and the "thinking…"
+  indicator all read `var(--chat-font-size)`.
+- Steps widened: 14px / 17px / 21px (was 14/16/19) so "크게" is
+  visibly bigger for senior eyes.
+
+### 3. Positive emotions in welcome examples
+- Removed 화가 나요 / 실패한 것 같아요.
+- Added 🥹 감사 기도를 드리고 싶어요 / ✨ 은혜로운 일이 있어요.
+- English equivalents updated symmetrically.

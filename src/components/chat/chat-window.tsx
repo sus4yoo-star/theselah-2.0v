@@ -123,10 +123,16 @@ export function ChatWindow({
           </div>
         ) : empty && !crisisVisible ? (
           <div className="mx-auto mt-6 max-w-xl text-center animate-rise sm:mt-12">
-            <h2 className="mb-2.5 font-serif text-xl font-medium text-selah-cream sm:text-2xl">
+            <h2
+              className="mb-2.5 font-serif font-medium text-selah-cream"
+              style={{ fontSize: "calc(var(--chat-font-size, 16px) * 1.45)" }}
+            >
               {t.welcomeTitle}
             </h2>
-            <p className="mb-7 text-[15px] leading-relaxed text-selah-cream2">
+            <p
+              className="mb-7 leading-relaxed text-selah-cream2"
+              style={{ fontSize: "var(--chat-font-size, 15px)" }}
+            >
               {t.welcomeDesc}
             </p>
             <div className="flex flex-wrap justify-center gap-2.5">
@@ -143,7 +149,8 @@ export function ChatWindow({
                         .trim()
                     )
                   }
-                  className="rounded-full border border-selah-gold/20 bg-selah-bg1 px-4 py-2.5 text-[14px] text-selah-cream2 transition-colors hover:border-selah-gold hover:bg-selah-gold/[0.08] hover:text-selah-gold"
+                  style={{ fontSize: "var(--chat-font-size, 14px)" }}
+                  className="rounded-full border border-selah-gold/20 bg-selah-bg1 px-4 py-2.5 text-selah-cream2 transition-colors hover:border-selah-gold hover:bg-selah-gold/[0.08] hover:text-selah-gold"
                 >
                   {ex}
                 </button>
@@ -156,7 +163,10 @@ export function ChatWindow({
               <MessageBubble key={m.id} message={m} lang={lang} />
             ))}
             {lastPendingEmpty && (
-              <div className="mx-auto mb-5 flex w-full max-w-2xl items-center gap-2 text-[14px] text-selah-cream3">
+              <div
+                className="mx-auto mb-5 flex w-full max-w-2xl items-center gap-2 text-selah-cream3"
+                style={{ fontSize: "var(--chat-font-size, 14px)" }}
+              >
                 <Loader2 className="h-4 w-4 animate-spin text-selah-gold/70" />
                 {t.thinking}
               </div>

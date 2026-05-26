@@ -19,8 +19,8 @@ export type FontSize = "sm" | "md" | "lg";
 const STORAGE_KEY = "selah_font_size";
 const VALUES: Record<FontSize, string> = {
   sm: "14px",
-  md: "16px",
-  lg: "19px",
+  md: "17px",
+  lg: "21px",
 };
 
 interface Ctx {
