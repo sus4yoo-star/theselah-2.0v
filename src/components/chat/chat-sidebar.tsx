@@ -8,10 +8,13 @@ import {
   Trash2,
   Check,
   X,
+  Search,
 } from "lucide-react";
 import type { ChatSession } from "@/lib/types";
 import { useLanguage } from "@/components/language-provider";
+import { getFeatureStrings } from "@/lib/feature-strings";
 import { Logo } from "@/components/logo";
+import { AmovFooter } from "@/components/amov-footer";
 import { sessionIcon } from "@/lib/session-icon";
 import {
   DropdownMenu,
@@ -38,9 +41,17 @@ export function ChatSidebar({
   onDelete: (id: string) => void;
   onClose?: () => void;
 }) {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
+  const fs = getFeatureStrings(lang);
   const [editingId, setEditingId] = React.useState<string | null>(null);
   const [draft, setDraft] = React.useState("");
+  const [query, setQuery] = React.useState("");
+
+  const filtered = React.useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return sessions;
+    return sessions.filter((s) => s.title.toLowerCase().includes(q));
+  }, [sessions, query]);
 
   const startEdit = (s: ChatSession) => {
     setEditingId(s.id);
@@ -79,18 +90,47 @@ export function ChatSidebar({
         </button>
       </div>
 
-      <div className="mt-5 px-5 text-[11px] font-medium uppercase tracking-[0.14em] text-selah-cream3">
+      {sessions.length > 0 && (
+        <div className="mt-3 px-3">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-selah-cream3" />
+            <input
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder={fs.searchPlaceholder}
+              aria-label={fs.searchPlaceholder}
+              className="w-full rounded-xl border border-white/[0.06] bg-selah-bg2/40 px-9 py-2 text-[13px] text-selah-cream placeholder:text-selah-cream3/60 focus:border-selah-gold/35 focus:outline-none"
+            />
+            {query && (
+              <button
+                onClick={() => setQuery("")}
+                aria-label="Clear search"
+                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-selah-cream3 hover:text-selah-cream"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      <div className="mt-4 px-5 text-[11px] font-medium uppercase tracking-[0.14em] text-selah-cream3">
         {t.history}
       </div>
 
       <nav className="selah-scroll mt-2 flex-1 space-y-0.5 overflow-y-auto px-2.5 pb-4">
-        {sessions.length === 0 && (
+        {sessions.length === 0 ? (
           <p className="px-3 py-6 text-center text-[13px] leading-relaxed text-selah-cream3/70">
             {t.noSessions}
           </p>
-        )}
+        ) : filtered.length === 0 ? (
+          <p className="px-3 py-6 text-center text-[13px] leading-relaxed text-selah-cream3/70">
+            {fs.searchNoResults}
+          </p>
+        ) : null}
 
-        {sessions.map((s) => {
+        {filtered.map((s) => {
           const active = s.id === activeId;
           const editing = editingId === s.id;
           return (
@@ -175,6 +215,10 @@ export function ChatSidebar({
           );
         })}
       </nav>
+
+      <div className="border-t border-white/[0.04] px-3 py-3">
+        <AmovFooter variant="inline" />
+      </div>
     </div>
   );
 }

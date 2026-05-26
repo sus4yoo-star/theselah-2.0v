@@ -1,0 +1,97 @@
+# SELAH Patch Notes — 2026.05.27
+
+This release covers TWO bundles of work:
+
+## Bundle 1 — Foundation cleanup + AMOV branding (already in v1)
+
+1. zip directory nesting fixed (`src/app/src/app/` chaos → clean Next.js App Router layout)
+2. Shared `lib/anthropic.ts` module added (was missing); api/chat now uses it
+3. SSE `error` event surfaces a fallback message instead of an empty bubble
+4. `X-Selah-Model` response header for easier debugging
+5. `AddToHomePrompt.tsx` dead-code component removed
+6. viewport `maximumScale: 1, userScalable: false` removed → pinch-zoom restored
+7. `Powered by AMOV` footer component across home, install, login, sidebar
+
+## Bundle 2 — Senior UX & accessibility (this round)
+
+### 1. Text size control (A − / A / A +)
+- `components/font-size-provider.tsx` — context provider persisted in localStorage (`selah_font_size`)
+- `components/chat/font-size-control.tsx` — dropdown with three steps (sm 14px / md 16px / lg 19px)
+- Lives in the chat header next to the language switcher
+- Scales: user bubbles, assistant section content, prayer text, the typing textarea
+- Implemented via CSS variable `--chat-font-size` so layout never breaks
+
+### 2. Crisis-keyword auto-card
+- `lib/crisis-detect.ts` — conservative bilingual matcher (자살, 자해, 죽고 싶, suicide, kill myself, self-harm, abuse signals…)
+- `components/chat/crisis-card.tsx` — warm amber card (not alarm-red) above the message stream
+- Korean speakers see: **1393 자살예방상담전화**, **1577-0199 정신건강위기상담**, **1388 청소년전화**, **119 응급**
+- English / other languages see: **988**, **911**, **findahelpline.com**
+- Detection happens client-side at send-time, in addition to (not instead of) the model's pastoral response
+- Dismissable; hidden again when switching sessions or starting a new chat
+
+### 3. Prayer text share / copy
+- `<prayer>` section now has two pill buttons: 기도 나누기 (Web Share API) and 복사 (clipboard)
+- On mobile, taps invoke the native share sheet (KakaoTalk, Messages, etc.)
+- Desktop / unsupported browsers gracefully fall back to clipboard copy
+- Bible reference is appended to the shared text when present
+
+### 4. Session search
+- Search input below the "New Chat" button in the sidebar
+- Filters chat titles in real time (case-insensitive)
+- "검색 결과가 없어요" message when filter has no matches
+- Only appears when there's at least one session
+
+### 5. Voice input (Web Speech API)
+- Mic button in the chat input bar (only shown if `SpeechRecognition` is supported)
+- Locale-aware: maps the UI language to BCP-47 (ko → ko-KR, en → en-US, etc.)
+- Interim results stream into the textarea as the user speaks; baseline text preserved
+- Tap again to stop; auto-stops on `onend`/error
+- Bilingual error messaging via `feature-strings.ts`
+
+## New files
+```
+src/lib/feature-strings.ts                           Korean + English strings + hotlines
+src/lib/crisis-detect.ts                             Bilingual regex matcher
+src/components/font-size-provider.tsx                Context + localStorage
+src/components/chat/font-size-control.tsx            Header dropdown
+src/components/chat/crisis-card.tsx                  Hotline UI
+```
+
+## Modified files
+```
+src/components/chat/chat-app.tsx                     FontSizeProvider, crisis state, dispatcher
+src/components/chat/chat-window.tsx                  Header FontSizeControl, CrisisCard slot
+src/components/chat/chat-sidebar.tsx                 Search field + filter
+src/components/chat/chat-input.tsx                   Mic + listening + responsive textarea
+src/components/chat/message-bubble.tsx               Share/copy buttons + font-size variable
+```
+
+## Architectural notes
+
+- New feature strings live in `feature-strings.ts`, not the main `i18n.ts`. Reason: backfilling 30 languages every release is unrealistic. The new module ships Korean + English and falls back to English for the other 28 locales. Localizing later is a single-file change.
+- Font-size scales chat content only. UI chrome (menu, header, sidebar labels) stays fixed so the layout doesn't fight the user's choice.
+- Crisis detection is intentionally **conservative** to avoid surveillance feel. The phrase set focuses on unmistakable distress signals; common Korean verbs like 죽다 are only triggered with a clear intent suffix (죽고 싶, 끝내고 싶, 살기 싫…).
+
+## Pre-deploy checklist
+
+```
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
+ANTHROPIC_API_KEY=
+ANTHROPIC_MODEL=                  (optional; default claude-sonnet-4-6)
+```
+
+Other items to verify before going live:
+
+- [ ] Run `npm install && npm run build` and resolve any local typing issues
+- [ ] When production domain is finalized, update `metadataBase` and OG URL in `src/app/layout.tsx` (currently `amov-selah2.netlify.app`)
+- [ ] Test mic permission on Galaxy Chrome + iOS Safari
+- [ ] Test crisis card with a Korean keyword on a staging session
+- [ ] Verify localStorage persistence: change text size, refresh, confirm sticky
+
+## What's NOT in this release
+
+- Multilingual crisis hotlines beyond KR/EN — easy to add country-by-country in `hotlinesFor()`
+- Pause-and-resume voice (current implementation is single-turn)
+- Server-side crisis logging — intentional. Detection stays client-side for privacy.

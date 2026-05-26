@@ -1,9 +1,10 @@
 "use client";
 
 import * as React from "react";
-import { SendHorizonal, ImagePlus, X } from "lucide-react";
+import { SendHorizonal, ImagePlus, X, Mic, MicOff } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { useLanguage } from "@/components/language-provider";
+import { getFeatureStrings } from "@/lib/feature-strings";
 import { cn } from "@/lib/utils";
 
 const MAX_DIM = 1280; // px — downscale large screenshots
@@ -39,6 +40,33 @@ function compressImage(file: File): Promise<string> {
   });
 }
 
+/**
+ * Best-effort BCP-47 tag for the speech recognition request. Web Speech
+ * API expects e.g. "ko-KR" / "en-US" — not just "ko" / "en".
+ */
+function speechLangTag(lang: string): string {
+  const map: Record<string, string> = {
+    ko: "ko-KR",
+    en: "en-US",
+    ja: "ja-JP",
+    zh: "zh-CN",
+    "zh-TW": "zh-TW",
+    es: "es-ES",
+    pt: "pt-BR",
+    fr: "fr-FR",
+    de: "de-DE",
+    it: "it-IT",
+    ru: "ru-RU",
+    th: "th-TH",
+    vi: "vi-VN",
+    id: "id-ID",
+    hi: "hi-IN",
+    ar: "ar-SA",
+    tr: "tr-TR",
+  };
+  return map[lang] || "en-US";
+}
+
 export function ChatInput({
   onSend,
   disabled,
@@ -46,20 +74,39 @@ export function ChatInput({
   onSend: (text: string, image?: string) => void;
   disabled?: boolean;
 }) {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
+  const fs = getFeatureStrings(lang);
   const [value, setValue] = React.useState("");
   const [image, setImage] = React.useState<string | null>(null);
   const [busy, setBusy] = React.useState(false);
   const [err, setErr] = React.useState<string | null>(null);
+  const [listening, setListening] = React.useState(false);
+  const [voiceSupported, setVoiceSupported] = React.useState(false);
   const ref = React.useRef<HTMLTextAreaElement>(null);
   const fileRef = React.useRef<HTMLInputElement>(null);
+  const recognitionRef = React.useRef<any>(null);
+
+  // Feature-detect the Web Speech API once on mount.
+  React.useEffect(() => {
+    if (typeof window === "undefined") return;
+    const SR: any =
+      (window as any).SpeechRecognition ||
+      (window as any).webkitSpeechRecognition;
+    setVoiceSupported(Boolean(SR));
+  }, []);
 
   const resize = React.useCallback(() => {
     const el = ref.current;
     if (!el) return;
     el.style.height = "auto";
-    el.style.height = Math.min(el.scrollHeight, 140) + "px";
+    el.style.height = Math.min(el.scrollHeight, 180) + "px";
   }, []);
+
+  // Recompute textarea height when the global font-size variable changes
+  // (the dropdown control mutates the CSS variable on document.documentElement).
+  React.useEffect(() => {
+    resize();
+  }, [value, resize]);
 
   const pickFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -81,10 +128,75 @@ export function ChatInput({
     }
   };
 
+  const stopListening = React.useCallback(() => {
+    try {
+      recognitionRef.current?.stop?.();
+    } catch {
+      /* ignore */
+    }
+    setListening(false);
+  }, []);
+
+  const startListening = () => {
+    if (typeof window === "undefined") return;
+    const SR: any =
+      (window as any).SpeechRecognition ||
+      (window as any).webkitSpeechRecognition;
+    if (!SR) {
+      setErr(fs.voiceUnsupported);
+      return;
+    }
+    if (listening) {
+      stopListening();
+      return;
+    }
+    setErr(null);
+    try {
+      const rec = new SR();
+      rec.lang = speechLangTag(lang);
+      rec.continuous = false;
+      rec.interimResults = true;
+      // Track the text that existed BEFORE this dictation session so
+      // interim results don't clobber what the user already typed.
+      const baseline = value;
+
+      rec.onresult = (event: any) => {
+        let finalChunk = "";
+        let interim = "";
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const res = event.results[i];
+          const transcript = res[0]?.transcript ?? "";
+          if (res.isFinal) finalChunk += transcript;
+          else interim += transcript;
+        }
+        const sep = baseline && !baseline.endsWith(" ") ? " " : "";
+        const combined = baseline + sep + finalChunk + interim;
+        setValue(combined);
+      };
+      rec.onerror = (e: any) => {
+        if (e?.error === "not-allowed" || e?.error === "service-not-allowed") {
+          setErr(fs.voiceError);
+        } else if (e?.error && e.error !== "no-speech" && e.error !== "aborted") {
+          setErr(fs.voiceError);
+        }
+        setListening(false);
+      };
+      rec.onend = () => setListening(false);
+
+      recognitionRef.current = rec;
+      rec.start();
+      setListening(true);
+    } catch {
+      setErr(fs.voiceError);
+      setListening(false);
+    }
+  };
+
   const submit = () => {
     const text = value.trim();
     if (disabled || busy) return;
     if (!text && !image) return;
+    if (listening) stopListening();
     onSend(text, image || undefined);
     setValue("");
     setImage(null);
@@ -116,9 +228,14 @@ export function ChatInput({
         </div>
       )}
 
-      {err && (
-        <p className="mx-auto mb-2 w-full max-w-2xl text-[12px] text-red-300">
-          {err}
+      {(err || listening) && (
+        <p
+          className={cn(
+            "mx-auto mb-2 w-full max-w-2xl text-[12px]",
+            err ? "text-red-300" : "text-selah-gold"
+          )}
+        >
+          {err || fs.voiceListening}
         </p>
       )}
 
@@ -145,12 +262,40 @@ export function ChatInput({
           <ImagePlus className="h-[19px] w-[19px]" />
         </button>
 
+        {voiceSupported && (
+          <button
+            type="button"
+            onClick={startListening}
+            disabled={disabled || busy}
+            title={fs.voiceStart}
+            aria-label={fs.voiceStart}
+            aria-pressed={listening}
+            className={cn(
+              "flex h-12 w-12 shrink-0 items-center justify-center rounded-full border transition-all active:scale-95",
+              listening
+                ? "border-selah-gold bg-selah-gold/20 text-selah-gold animate-pulse"
+                : "border-selah-gold/25 text-selah-gold hover:bg-selah-gold/[0.12]",
+              "disabled:cursor-not-allowed disabled:opacity-40"
+            )}
+          >
+            {listening ? (
+              <MicOff className="h-[19px] w-[19px]" />
+            ) : (
+              <Mic className="h-[19px] w-[19px]" />
+            )}
+          </button>
+        )}
+
         <Textarea
           ref={ref}
           rows={1}
           value={value}
           placeholder={t.placeholder}
           disabled={disabled}
+          // Picks up the user's chosen size from the global CSS variable
+          // (set by the font-size dropdown in the chat header). Falls back
+          // to 16px when no preference has been applied yet.
+          style={{ fontSize: "var(--chat-font-size, 16px)" }}
           onChange={(e) => {
             setValue(e.target.value);
             resize();

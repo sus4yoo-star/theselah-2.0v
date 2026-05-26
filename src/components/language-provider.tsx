@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import type { LangCode } from "@/lib/types";
-import { getDict, normalizeLang, isRTL, type Dict } from "@/lib/i18n";
+import { getDict, normalizeLang, type Dict } from "@/lib/i18n";
 
 interface LanguageContextValue {
   lang: LangCode;
@@ -97,7 +97,6 @@ export function LanguageProvider({
   React.useEffect(() => {
     if (typeof document !== "undefined") {
       document.documentElement.lang = lang;
-      document.documentElement.dir = isRTL(lang) ? "rtl" : "ltr";
     }
   }, [lang]);
 

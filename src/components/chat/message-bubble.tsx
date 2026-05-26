@@ -1,10 +1,101 @@
 "use client";
 
 import * as React from "react";
+import { Share2, Copy, Check } from "lucide-react";
 import type { ChatMessage, LangCode } from "@/lib/types";
 import { parseAI, stripTagsForLive } from "@/lib/format";
 import { bibleMeta } from "@/lib/bible";
+import { getFeatureStrings } from "@/lib/feature-strings";
 import { cn } from "@/lib/utils";
+
+/**
+ * Small share/copy widget pinned to the prayer section.
+ *
+ * Uses the Web Share API on mobile (so the user gets the native share
+ * sheet — KakaoTalk, Messages, etc.) and falls back to clipboard on
+ * desktop / unsupported browsers.
+ */
+function PrayerShareActions({
+  text,
+  reference,
+  lang,
+}: {
+  text: string;
+  reference?: string;
+  lang: LangCode;
+}) {
+  const fs = getFeatureStrings(lang);
+  const [copied, setCopied] = React.useState(false);
+
+  const composed = React.useMemo(() => {
+    const body = text.trim();
+    if (reference && reference.trim()) {
+      return `${body}\n\n— ${reference.trim()}`;
+    }
+    return body;
+  }, [text, reference]);
+
+  const canShare =
+    typeof navigator !== "undefined" &&
+    typeof navigator.share === "function";
+
+  const handleCopy = async () => {
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(composed);
+      } else {
+        const ta = document.createElement("textarea");
+        ta.value = composed;
+        ta.style.position = "fixed";
+        ta.style.opacity = "0";
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand("copy");
+        document.body.removeChild(ta);
+      }
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1600);
+    } catch {
+      /* ignore */
+    }
+  };
+
+  const handleShare = async () => {
+    try {
+      await navigator.share({ text: composed });
+    } catch {
+      // User cancelled or share failed silently; fall back to copy.
+      handleCopy();
+    }
+  };
+
+  return (
+    <div className="mt-3 flex items-center justify-end gap-2 border-t border-amber-200/10 pt-2.5">
+      {canShare && (
+        <button
+          type="button"
+          onClick={handleShare}
+          className="inline-flex items-center gap-1.5 rounded-full border border-amber-200/25 px-3 py-1 text-[12px] text-amber-200/90 transition-colors hover:bg-amber-200/[0.06]"
+        >
+          <Share2 className="h-3.5 w-3.5" />
+          {fs.shareWords}
+        </button>
+      )}
+      <button
+        type="button"
+        onClick={handleCopy}
+        className="inline-flex items-center gap-1.5 rounded-full border border-amber-200/25 px-3 py-1 text-[12px] text-amber-200/90 transition-colors hover:bg-amber-200/[0.06]"
+      >
+        {copied ? (
+          <Check className="h-3.5 w-3.5" />
+        ) : (
+          <Copy className="h-3.5 w-3.5" />
+        )}
+        {copied ? fs.copied : fs.copy}
+      </button>
+    </div>
+  );
+}
 
 type SectionTone =
   | "emotion"
@@ -50,7 +141,12 @@ function Section({
       >
         {label}
       </div>
-      <div className="text-[15px] leading-7 text-selah-cream2">{children}</div>
+      <div
+        className="leading-7 text-selah-cream2"
+        style={{ fontSize: "var(--chat-font-size, 15px)" }}
+      >
+        {children}
+      </div>
     </section>
   );
 }
@@ -96,7 +192,10 @@ export function MessageBubble({
           />
         )}
         {message.content && (
-          <div className="rounded-2xl rounded-tr-sm border border-sky-300/20 bg-sky-400/20 px-4 py-3 text-[15px] leading-7 text-selah-cream1 shadow-soft">
+          <div
+            className="rounded-2xl rounded-tr-sm border border-sky-300/20 bg-sky-400/20 px-4 py-3 leading-7 text-selah-cream1 shadow-soft"
+            style={{ fontSize: "var(--chat-font-size, 15px)" }}
+          >
             {message.content}
           </div>
         )}
@@ -114,7 +213,10 @@ export function MessageBubble({
         <div className="mb-1 text-[11px] uppercase tracking-[0.2em] text-selah-cream3">
           SELAH
         </div>
-        <div className="rounded-2xl rounded-tl-sm border border-selah-gold/10 bg-selah-bg2/80 px-4 py-3 text-[15px] leading-7 text-selah-cream2 shadow-soft">
+        <div
+          className="rounded-2xl rounded-tl-sm border border-selah-gold/10 bg-selah-bg2/80 px-4 py-3 leading-7 text-selah-cream2 shadow-soft"
+          style={{ fontSize: "var(--chat-font-size, 15px)" }}
+        >
           {live}
           <span className="ml-1 inline-block h-4 w-[2px] animate-pulse bg-selah-gold align-middle" />
         </div>
@@ -128,7 +230,10 @@ export function MessageBubble({
         <div className="mb-1 text-[11px] uppercase tracking-[0.2em] text-selah-cream3">
           SELAH
         </div>
-        <div className="whitespace-pre-wrap rounded-2xl rounded-tl-sm border border-selah-gold/10 bg-selah-bg2/80 px-4 py-3 text-[15px] leading-7 text-selah-cream2 shadow-soft">
+        <div
+          className="whitespace-pre-wrap rounded-2xl rounded-tl-sm border border-selah-gold/10 bg-selah-bg2/80 px-4 py-3 leading-7 text-selah-cream2 shadow-soft"
+          style={{ fontSize: "var(--chat-font-size, 15px)" }}
+        >
           {parsed.raw}
           {message.pending && (
             <span className="ml-1 inline-block h-4 w-[2px] animate-pulse bg-selah-gold align-middle" />
@@ -192,7 +297,19 @@ export function MessageBubble({
 
         {parsed.prayer && (
           <Section label={l.prayer} tone="prayer">
-            <p className="whitespace-pre-wrap">{parsed.prayer}</p>
+            <p
+              className="whitespace-pre-wrap"
+              style={{ fontSize: "var(--chat-font-size, 15px)" }}
+            >
+              {parsed.prayer}
+            </p>
+            {!message.pending && (
+              <PrayerShareActions
+                text={parsed.prayer}
+                reference={parsed.scripture?.ref}
+                lang={lang}
+              />
+            )}
           </Section>
         )}
 

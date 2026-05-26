@@ -3,6 +3,11 @@ import { buildSystemPrompt, classifyIntent } from "@/lib/prompt";
 import { normalizeLang, detectLangFromText } from "@/lib/i18n";
 import { createClient } from "@/lib/supabase/server";
 import { loadUserMemory, updateUserMemory } from "@/lib/selah-memory";
+import {
+  ANTHROPIC_VERSION,
+  defaultModel,
+  splitDataUrl,
+} from "@/lib/anthropic";
 import type { LangCode } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -28,20 +33,6 @@ function lastUserText(messages: InMsg[]): string {
     if (messages[i].role === "user") return messages[i].content || "";
   }
   return "";
-}
-
-/**
- * Parse a `data:image/...;base64,...` URL into the shape the Anthropic
- * Messages API expects. Returns null if it is not a usable image.
- */
-function parseDataUrl(
-  dataUrl: string
-): { media_type: string; data: string } | null {
-  const m = /^data:(image\/(?:jpeg|png|gif|webp));base64,(.+)$/i.exec(
-    dataUrl.trim()
-  );
-  if (!m) return null;
-  return { media_type: m[1].toLowerCase(), data: m[2] };
 }
 
 export async function POST(req: NextRequest) {
@@ -85,12 +76,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  let messages = Array.isArray(body.messages) ? body.messages.slice(-16) : [];
-  // The Anthropic API requires the conversation to start with a user
-  // turn. Drop any leading assistant turns defensively.
-  while (messages.length && messages[0].role !== "user") {
-    messages = messages.slice(1);
-  }
+  const messages = Array.isArray(body.messages) ? body.messages.slice(-16) : [];
   if (messages.length === 0) {
     return new Response("No messages", { status: 400 });
   }
@@ -106,8 +92,7 @@ export async function POST(req: NextRequest) {
     typeof body.image === "string" && body.image.startsWith("data:image/")
       ? body.image
       : "";
-  const imgPart = image ? parseDataUrl(image) : null;
-  const hasImage = Boolean(imgPart);
+  const hasImage = Boolean(image);
 
   const bibleMode = Boolean(body.bibleMode);
   let intent = classifyIntent(userText);
@@ -117,10 +102,9 @@ export async function POST(req: NextRequest) {
   const memory = await loadUserMemory(supabase, userId);
   const system = buildSystemPrompt({ lang, bibleMode, intent, hasImage, memory });
 
-  const model = process.env.ANTHROPIC_MODEL || "claude-sonnet-4-6";
+  const model = defaultModel();
 
-  // Build the upstream messages. The latest user turn carries the image
-  // as a vision content block when present.
+  // Find the latest user turn (the one that may carry an image).
   let lastUserIdx = -1;
   for (let i = messages.length - 1; i >= 0; i--) {
     if (messages[i].role === "user") {
@@ -128,48 +112,81 @@ export async function POST(req: NextRequest) {
       break;
     }
   }
-  const chatMessages = messages.map((m, i) => {
-    if (hasImage && imgPart && i === lastUserIdx) {
-      return {
-        role: m.role,
-        content: [
-          {
-            type: "image",
-            source: {
-              type: "base64",
-              media_type: imgPart.media_type,
-              data: imgPart.data,
-            },
+
+  // Anthropic requires the conversation to begin with a user turn and to
+  // alternate cleanly. Drop any leading assistant messages from the slice
+  // and collapse accidental consecutive same-role turns.
+  let firstUser = messages.findIndex((m) => m.role === "user");
+  if (firstUser < 0) firstUser = messages.length;
+  const trimmed = messages.slice(firstUser);
+  const offset = firstUser;
+
+  const claudeMessages: any[] = [];
+  trimmed.forEach((m, idx) => {
+    const absoluteIdx = idx + offset;
+    const text = String(m.content || "").trim();
+
+    let content: any;
+    if (hasImage && absoluteIdx === lastUserIdx) {
+      const parsed = splitDataUrl(image);
+      const blocks: any[] = [];
+      if (parsed) {
+        blocks.push({
+          type: "image",
+          source: {
+            type: "base64",
+            media_type: parsed.mediaType,
+            data: parsed.data,
           },
-          {
-            type: "text",
-            text:
-              String(m.content || "") ||
-              "Please look at the attached image and respond.",
-          },
-        ],
-      };
+        });
+      }
+      blocks.push({
+        type: "text",
+        text: text || "Please look carefully at the attached image and respond.",
+      });
+      content = blocks;
+    } else {
+      content = text || "…";
     }
-    return { role: m.role, content: String(m.content || "") };
+
+    const prev = claudeMessages[claudeMessages.length - 1];
+    if (prev && prev.role === m.role) {
+      // Merge a stray same-role turn so alternation stays valid.
+      if (typeof prev.content === "string" && typeof content === "string") {
+        prev.content = `${prev.content}\n\n${content}`;
+      } else {
+        const a = Array.isArray(prev.content)
+          ? prev.content
+          : [{ type: "text", text: String(prev.content) }];
+        const b = Array.isArray(content)
+          ? content
+          : [{ type: "text", text: String(content) }];
+        prev.content = [...a, ...b];
+      }
+      return;
+    }
+    claudeMessages.push({ role: m.role, content });
   });
+
+  if (claudeMessages.length === 0 || claudeMessages[0].role !== "user") {
+    return new Response("No messages", { status: 400 });
+  }
 
   const upstream = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       "x-api-key": apiKey,
-      "anthropic-version": "2023-06-01",
+      "anthropic-version": ANTHROPIC_VERSION,
     },
     body: JSON.stringify({
       model,
       stream: true,
-      // Anthropic uses a top-level `system` field — the system prompt is
-      // NOT a message. Keep temperature moderate so the pastoral voice is
-      // warm and varied without drifting.
-      system,
+      // Warm and varied without drifting; Anthropic caps temperature at 1.
       temperature: 0.8,
       max_tokens: 1800,
-      messages: chatMessages,
+      system,
+      messages: claudeMessages,
     }),
   });
 
@@ -235,6 +252,7 @@ export async function POST(req: NextRequest) {
 
           for (const raw of lines) {
             const line = raw.trim();
+            // Anthropic SSE: lines are "event: <name>" and "data: <json>".
             if (!line.startsWith("data:")) continue;
             const data = line.slice(5).trim();
             if (!data || data === "[DONE]") continue;
@@ -243,19 +261,30 @@ export async function POST(req: NextRequest) {
               const json = JSON.parse(data);
               const type = json?.type;
 
-              if (
-                type === "content_block_delta" &&
-                json?.delta?.type === "text_delta" &&
-                typeof json.delta.text === "string"
-              ) {
-                assistantText += json.delta.text;
-                controller.enqueue(encoder.encode(json.delta.text));
+              if (type === "content_block_delta") {
+                const delta = json?.delta;
+                if (delta?.type === "text_delta" && delta.text) {
+                  assistantText += delta.text;
+                  controller.enqueue(encoder.encode(delta.text));
+                }
               } else if (type === "message_stop") {
                 await finalize();
                 controller.close();
                 return;
               } else if (type === "error") {
-                // Surface upstream stream errors instead of hanging.
+                // Surface a short, safe note instead of a silent stop —
+                // otherwise the UI shows a blank assistant bubble.
+                const msg = json?.error?.message
+                  ? ` (${json.error.message})`
+                  : "";
+                if (!assistantText) {
+                  controller.enqueue(
+                    encoder.encode(
+                      `<direction>잠시 문제가 생겼어요. 곧 다시 시도해 주세요.${msg}</direction>`
+                    )
+                  );
+                }
+                await finalize();
                 controller.close();
                 return;
               }
@@ -280,6 +309,7 @@ export async function POST(req: NextRequest) {
       "X-Accel-Buffering": "no",
       "X-Selah-Intent": intent,
       "X-Selah-Lang": lang,
+      "X-Selah-Model": model,
     },
   });
 }

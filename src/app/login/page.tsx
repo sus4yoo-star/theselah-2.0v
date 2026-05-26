@@ -6,6 +6,7 @@ import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
 import { useLanguage } from "@/components/language-provider";
 import { LanguageSelector } from "@/components/language-selector";
 import { Logo } from "@/components/logo";
+import { AmovFooter } from "@/components/amov-footer";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Loader2, CheckCircle2, AlertCircle } from "lucide-react";
@@ -283,6 +284,8 @@ function LoginInner() {
             {t.authConfigMissing}
           </p>
         )}
+
+        <AmovFooter variant="inline" />
       </div>
     </main>
   );

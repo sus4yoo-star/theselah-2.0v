@@ -4,10 +4,12 @@ import * as React from "react";
 import type { ChatMessage } from "@/lib/types";
 import { useLanguage } from "@/components/language-provider";
 import { LanguageSelector } from "@/components/language-selector";
+import { FontSizeControl } from "@/components/chat/font-size-control";
 import { PrayerMenu } from "@/components/chat/prayer-menu";
 import { AccountMenu } from "@/components/chat/account-menu";
 import { MessageBubble } from "@/components/chat/message-bubble";
 import { ChatInput } from "@/components/chat/chat-input";
+import { CrisisCard } from "@/components/chat/crisis-card";
 import { Loader2, ChevronDown } from "lucide-react";
 
 export function ChatWindow({
@@ -17,6 +19,8 @@ export function ChatWindow({
   loadingMsgs,
   onSend,
   menuButton,
+  crisisVisible,
+  onDismissCrisis,
 }: {
   email: string;
   messages: ChatMessage[];
@@ -24,6 +28,8 @@ export function ChatWindow({
   loadingMsgs: boolean;
   onSend: (text: string, image?: string) => void;
   menuButton: React.ReactNode;
+  crisisVisible?: boolean;
+  onDismissCrisis?: () => void;
 }) {
   const { t, lang } = useLanguage();
   const scrollRef = React.useRef<HTMLDivElement>(null);
@@ -88,11 +94,10 @@ export function ChatWindow({
       <header className="shrink-0 border-b border-selah-gold/15 bg-selah-bg1 pt-[env(safe-area-inset-top)]">
         <div className="flex h-[60px] items-center gap-2 px-3 sm:px-4">
           {menuButton}
-          <div className="font-display text-xl font-semibold tracking-[0.16em] text-selah-gold lg:hidden">
-            SELAH
-          </div>
+          <div className="font-display text-xl font-semibold tracking-[0.16em] text-selah-gold lg:hidden">SELAH</div>
           <div className="ml-auto flex items-center gap-2">
             <PrayerMenu />
+            <FontSizeControl />
             <LanguageSelector compact />
             <AccountMenu email={email} />
           </div>
@@ -105,12 +110,18 @@ export function ChatWindow({
           ref={scrollRef}
           onScroll={updatePinned}
           className="selah-scroll h-full overflow-y-auto px-4 py-6"
+          // Lets descendants opt into the responsive size via the variable.
+          style={{ ["--chat-font-size" as any]: undefined }}
         >
+        {crisisVisible && onDismissCrisis && (
+          <CrisisCard onClose={onDismissCrisis} />
+        )}
+
         {loadingMsgs ? (
           <div className="flex h-full items-center justify-center">
             <Loader2 className="h-6 w-6 animate-spin text-selah-gold/70" />
           </div>
-        ) : empty ? (
+        ) : empty && !crisisVisible ? (
           <div className="mx-auto mt-6 max-w-xl text-center animate-rise sm:mt-12">
             <h2 className="mb-2.5 font-serif text-xl font-medium text-selah-cream sm:text-2xl">
               {t.welcomeTitle}

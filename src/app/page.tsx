@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useLanguage } from "@/components/language-provider";
 import { LanguageSelector } from "@/components/language-selector";
 import { Button } from "@/components/ui/button";
+import { AmovFooter } from "@/components/amov-footer";
 import { ArrowRight } from "lucide-react";
 
 export default function HomePage() {
@@ -79,6 +80,8 @@ export default function HomePage() {
         >
           {t.note}
         </p>
+
+        <AmovFooter />
       </div>
     </main>
   );

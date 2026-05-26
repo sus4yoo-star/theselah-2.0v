@@ -19,6 +19,8 @@ import {
 } from "@/lib/chat-data";
 import { ChatSidebar } from "@/components/chat/chat-sidebar";
 import { ChatWindow } from "@/components/chat/chat-window";
+import { FontSizeProvider } from "@/components/font-size-provider";
+import { detectCrisis } from "@/lib/crisis-detect";
 import { cn } from "@/lib/utils";
 
 function uid() {
@@ -52,6 +54,7 @@ export function ChatApp({
   const [streaming, setStreaming] = React.useState(false);
   const [loadingMsgs, setLoadingMsgs] = React.useState(false);
   const [sidebarOpen, setSidebarOpen] = React.useState(false);
+  const [crisisVisible, setCrisisVisible] = React.useState(false);
   // Keep profile.language in sync with the UI language. The browser
   // preference (cookie + localStorage, set by LanguageProvider) is the
   // source of truth — NOT profile.language. For OAuth signups (Kakao /
@@ -75,12 +78,14 @@ export function ChatApp({
     setActiveId(null);
     setMessages([]);
     setSidebarOpen(false);
+    setCrisisVisible(false);
   };
 
   const selectSession = async (id: string) => {
     setActiveId(id);
     setSidebarOpen(false);
     setLoadingMsgs(true);
+    setCrisisVisible(false);
     try {
       const rows = await listMessages(id);
       setMessages(
@@ -132,6 +137,14 @@ export function ChatApp({
   const sendMessage = async (text: string, image?: string) => {
     if (streaming) return;
     if (!text.trim() && !image) return;
+
+    // Surface the crisis-help card whenever the user's text matches a
+    // direct distress signal. Conservative on purpose; see crisis-detect.ts.
+    // We don't block the chat — the model still responds pastorally — we
+    // just make real-world help one tap away above the conversation.
+    if (text && detectCrisis(text)) {
+      setCrisisVisible(true);
+    }
 
     const displayContent =
       text.trim() || (image ? t.photoSent : "");
@@ -261,6 +274,7 @@ export function ChatApp({
   };
 
   return (
+    <FontSizeProvider>
     <div className="flex h-dvh overflow-hidden bg-selah-bg">
       {/* Sidebar — desktop */}
       <aside className="hidden w-72 shrink-0 border-r border-white/[0.06] lg:block">
@@ -314,6 +328,8 @@ export function ChatApp({
           streaming={streaming}
           loadingMsgs={loadingMsgs}
           onSend={sendMessage}
+          crisisVisible={crisisVisible}
+          onDismissCrisis={() => setCrisisVisible(false)}
           menuButton={
             <button
               onClick={() => setSidebarOpen(true)}
@@ -326,5 +342,6 @@ export function ChatApp({
         />
       </div>
     </div>
+    </FontSizeProvider>
   );
 }

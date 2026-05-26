@@ -66,8 +66,9 @@ export const viewport: Viewport = {
   themeColor: "#07111f",
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
+  // Senior users (a large slice of SELAH's audience) rely on pinch-zoom
+  // to read comfortably; iOS Safari disables it when maximumScale is 1.
+  // We leave the viewport zoomable.
   viewportFit: "cover",
 };
 

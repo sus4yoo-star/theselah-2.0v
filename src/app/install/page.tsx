@@ -11,6 +11,7 @@ import {
   Compass,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { AmovFooter } from "@/components/amov-footer";
 
 type Platform = "ios" | "android";
 
@@ -201,6 +202,8 @@ export default function InstallPage() {
         >
           잘 안 되시나요? 위 탭에서 다른 기기 안내를 확인해 보세요.
         </p>
+
+        <AmovFooter />
       </div>
     </main>
   );

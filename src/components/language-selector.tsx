@@ -33,10 +33,7 @@ export function LanguageSelector({
         <Globe className="h-3.5 w-3.5 opacity-70" />
         <span>{current?.label ?? "English"}</span>
       </DropdownMenuTrigger>
-      <DropdownMenuContent
-        align="end"
-        className="max-h-[min(70vh,28rem)] overflow-y-auto overscroll-contain"
-      >
+      <DropdownMenuContent align="end">
         {LANG_OPTIONS.map((o) => (
           <DropdownMenuItem
             key={o.code}
