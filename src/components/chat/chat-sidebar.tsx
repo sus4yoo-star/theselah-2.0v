@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import {
   Plus,
   MoreHorizontal,
@@ -10,6 +11,8 @@ import {
   X,
   Search,
   Star,
+  Activity,
+  Bell,
 } from "lucide-react";
 import type { ChatSession } from "@/lib/types";
 import { useLanguage } from "@/components/language-provider";
@@ -100,6 +103,23 @@ export function ChatSidebar({
           <Plus className="h-4 w-4" />
           {t.newChat}
         </button>
+      </div>
+
+      <div className="mt-2 grid grid-cols-2 gap-2 px-3">
+        <Link
+          href="/journey"
+          className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-white/[0.06] px-3 py-2 text-[12px] text-selah-cream2 transition-colors hover:border-selah-gold/30 hover:text-selah-cream"
+        >
+          <Activity className="h-3.5 w-3.5" />
+          {fs.journeyOpen}
+        </Link>
+        <Link
+          href="/reminders"
+          className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-white/[0.06] px-3 py-2 text-[12px] text-selah-cream2 transition-colors hover:border-selah-gold/30 hover:text-selah-cream"
+        >
+          <Bell className="h-3.5 w-3.5" />
+          {fs.reminderTitle}
+        </Link>
       </div>
 
       {sessions.length > 0 && (
