@@ -17,9 +17,29 @@ export default async function ChatPage() {
 
   try {
     const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+
+    // Resolve the user with a tolerant two-step probe.
+    //
+    // We try `getUser()` first — it's authoritative because it actually
+    // verifies the JWT against Supabase. But there is a small window
+    // immediately after login where the auth-token cookie is present
+    // but the JWT verification hasn't propagated yet (or the network
+    // call hiccups). In that window `getUser()` returns null even
+    // though the session in the cookie is perfectly valid. Without a
+    // fallback that's exactly the moment we'd redirect the user back
+    // to /login — the "have to log in twice" bug.
+    //
+    // So if `getUser()` comes up empty, we read the local session
+    // straight from the cookie via `getSession()`. If a session exists
+    // there we trust it for this request. The next navigation will go
+    // through middleware which re-verifies properly.
+    let user = (await supabase.auth.getUser()).data.user;
+    if (!user) {
+      const { data } = await supabase.auth.getSession();
+      if (data.session?.user) {
+        user = data.session.user;
+      }
+    }
 
     if (user) {
       userId = user.id;

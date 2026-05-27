@@ -55,7 +55,18 @@ export async function updateSession(request: NextRequest) {
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = "/login";
     redirectUrl.searchParams.set("next", path);
-    return NextResponse.redirect(redirectUrl);
+
+    // CRITICAL: If getUser() triggered a token refresh, fresh session
+    // cookies were just written onto `response.cookies`. Building the
+    // redirect from scratch would discard them, forcing the user to log
+    // in a second time before the new cookies stick. So we copy every
+    // cookie from `response` onto the redirect so it carries any
+    // refreshed tokens along.
+    const redirect = NextResponse.redirect(redirectUrl);
+    response.cookies.getAll().forEach((c) => {
+      redirect.cookies.set(c.name, c.value);
+    });
+    return redirect;
   }
 
   return response;

@@ -11,6 +11,26 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 
+/**
+ * Polls `getSession()` until the session cookies are readable, or until
+ * we hit the timeout. Without this, `window.location.assign("/chat")`
+ * can race ahead of the cookie write and the very first request to
+ * /chat lands without an auth header — middleware bounces back to
+ * /login and the user thinks they have to log in twice.
+ */
+async function waitForSession(
+  supabase: ReturnType<typeof createClient>,
+  { timeoutMs = 1500, intervalMs = 50 } = {}
+): Promise<boolean> {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    const { data } = await supabase.auth.getSession();
+    if (data?.session) return true;
+    await new Promise((r) => setTimeout(r, intervalMs));
+  }
+  return false;
+}
+
 function LoginInner() {
   const { t, lang } = useLanguage();
   const params = useSearchParams();
@@ -131,9 +151,12 @@ function LoginInner() {
           }
         }
         setSuccess(t.signup + " ✓");
-        // Hard navigation guarantees the session cookies that Supabase just
-        // committed are included in the next request, preventing the
-        // "logged in but middleware redirects back to /login" race.
+        // Wait for the session cookies to actually be readable before
+        // navigating. signInWithPassword resolves with the session in
+        // memory but the cookie write can lag a few ms behind, and a
+        // hard navigation that races against it lands on /chat with
+        // no session → bounce back to /login → "have to log in twice".
+        await waitForSession(supabase);
         window.location.assign(next);
         return;
       }
@@ -148,7 +171,8 @@ function LoginInner() {
         return;
       }
       setSuccess(t.login + " ✓");
-      // Hard navigation (see comment above): avoids the SSR session race.
+      // See comment above — same race, same fix.
+      await waitForSession(supabase);
       window.location.assign(next);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Sign-in failed");
