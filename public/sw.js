@@ -1,10 +1,19 @@
-/* SELAH service worker, v3. Bump the version string at the top whenever
- * shipping a new build — that's the lever that clears users' stale shell
- * cache so they pick up new code on next visit. */
-const CACHE = "selah-shell-v4";
+/* SELAH service worker, v5.
+ *
+ * IMPORTANT: bumped to v5 (and CACHE renamed to "selah-shell-v5") because
+ * v3/v4 was caching page HTML for navigation requests under the wrong
+ * "selah-shell-*" key, which collided with the Selah PWA and caused an
+ * infinite login loop when a stale /chat or /login page was served from
+ * the cache.
+ *
+ * Strategy in v5:
+ *   - Navigation requests (HTML pages) → NETWORK FIRST. The cache is
+ *     only used as an offline fallback.
+ *   - Static assets (CSS, JS chunks, images) → stale-while-revalidate.
+ *   - API, /auth/, /_next/data, Supabase → bypass cache entirely.
+ */
+const CACHE = "selah-shell-v5";
 
-/* Files that should be available even when the user is offline. The list
- * is intentionally small so install never fails on a slow connection. */
 const PRECACHE = [
   "/",
   "/today",
@@ -47,8 +56,7 @@ self.addEventListener("fetch", (e) => {
   if (req.method !== "GET") return;
   const url = new URL(req.url);
 
-  /* Never cache anything dynamic — auth flows, API, Supabase RPC, Next.js
-   * data fetches. Those always go to the network. */
+  /* Never cache anything dynamic — auth, API, Supabase, Next data. */
   if (
     url.pathname.startsWith("/api/") ||
     url.pathname.startsWith("/auth/") ||
@@ -59,9 +67,32 @@ self.addEventListener("fetch", (e) => {
     return;
   }
 
-  /* Stale-while-revalidate: serve the cached copy if any, but always
-   * kick off a background fetch to refresh it. Offline → fall back to
-   * cache, then to the cached "/" shell so the splash still loads. */
+  /* Navigation requests (HTML pages) are NETWORK-FIRST. Returning a
+   * stale /chat or /login HTML from the cache after a fresh build is
+   * what caused the auth loop, so we always try the network first and
+   * only fall back to cache if the user is offline. */
+  const isNavigation =
+    req.mode === "navigate" ||
+    (req.headers.get("accept") || "").includes("text/html");
+
+  if (isNavigation) {
+    e.respondWith(
+      fetch(req)
+        .then((res) => {
+          // Keep a fresh copy in the cache for offline fallback only —
+          // never serve it on the next online visit.
+          if (res && res.status === 200 && res.type === "basic") {
+            const copy = res.clone();
+            caches.open(CACHE).then((c) => c.put(req, copy)).catch(() => {});
+          }
+          return res;
+        })
+        .catch(() => caches.match(req).then((cached) => cached || caches.match("/")))
+    );
+    return;
+  }
+
+  /* Static assets: stale-while-revalidate. */
   e.respondWith(
     caches.match(req).then((cached) => {
       const fetched = fetch(req)
@@ -78,21 +109,19 @@ self.addEventListener("fetch", (e) => {
   );
 });
 
-/* Listen for an explicit "skip waiting" message so the app can prompt
- * the user to refresh when a new version is detected. */
 self.addEventListener("message", (e) => {
   if (e.data && e.data.type === "SKIP_WAITING") {
     self.skipWaiting();
   }
 });
 
-/* ── Web Push ──────────────────────────────────────────────────────
- * Triggered by the cron job. Payload is a JSON string:
- *   { title, body, url? }
- * If the payload is missing or malformed we fall back to a generic
- * reminder so the user still gets a nudge. */
+/* ── Web Push ────────────────────────────────────────────────────── */
 self.addEventListener("push", (e) => {
-  let data = { title: "SELAH", body: "잠시 멈춰, 오늘 마음을 올려드려 보세요.", url: "/chat" };
+  let data = {
+    title: "SELAH",
+    body: "잠시 멈춰, 오늘 마음을 올려드려 보세요.",
+    url: "/chat",
+  };
   if (e.data) {
     try {
       const parsed = e.data.json();
@@ -111,29 +140,33 @@ self.addEventListener("push", (e) => {
       icon: "/icon-192.png",
       badge: "/icon-192.png",
       data: { url: data.url || "/chat" },
-      // tag so a backlog of unread reminders collapses into one
       tag: "selah-reminder",
       renotify: false,
     })
   );
 });
 
-/* Open / focus the app when a reminder is tapped. */
 self.addEventListener("notificationclick", (e) => {
   e.notification.close();
   const target = (e.notification.data && e.notification.data.url) || "/chat";
   e.waitUntil(
-    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((all) => {
-      for (const client of all) {
-        if ("focus" in client) {
-          client.focus();
-          if ("navigate" in client) {
-            try { client.navigate(target); } catch { /* ignore */ }
+    self.clients
+      .matchAll({ type: "window", includeUncontrolled: true })
+      .then((all) => {
+        for (const client of all) {
+          if ("focus" in client) {
+            client.focus();
+            if ("navigate" in client) {
+              try {
+                client.navigate(target);
+              } catch {
+                /* ignore */
+              }
+            }
+            return;
           }
-          return;
         }
-      }
-      if (self.clients.openWindow) return self.clients.openWindow(target);
-    })
+        if (self.clients.openWindow) return self.clients.openWindow(target);
+      })
   );
 });
