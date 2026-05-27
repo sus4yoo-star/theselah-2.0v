@@ -1,27 +1,27 @@
-/* SELAH service worker, v5.
+/* SELAH service worker, v6.
  *
- * IMPORTANT: bumped to v5 (and CACHE renamed to "selah-shell-v5") because
- * v3/v4 was caching page HTML for navigation requests under the wrong
- * "selah-shell-*" key, which collided with the Selah PWA and caused an
- * infinite login loop when a stale /chat or /login page was served from
- * the cache.
+ * v6 changes: PWA-critical files (manifest.json, /icon-*.png, apple-touch
+ * icons) are now ALWAYS fetched from the network so iOS can read the
+ * latest display:standalone value when a user installs the PWA. v5 was
+ * stale-while-revalidating these and we saw cases where iOS read a stale
+ * cached manifest and refused to install as standalone.
  *
- * Strategy in v5:
- *   - Navigation requests (HTML pages) → NETWORK FIRST. The cache is
- *     only used as an offline fallback.
- *   - Static assets (CSS, JS chunks, images) → stale-while-revalidate.
- *   - API, /auth/, /_next/data, Supabase → bypass cache entirely.
+ * Strategy:
+ *   - PWA install files (manifest, icons) → NETWORK ONLY, no caching.
+ *   - Navigation requests (HTML)         → NETWORK-FIRST, cache offline.
+ *   - Static assets (JS/CSS bundles)     → stale-while-revalidate.
+ *   - API / auth / Supabase              → bypass entirely.
  */
-const CACHE = "selah-shell-v5";
+const CACHE = "selah-shell-v6";
 
 const PRECACHE = [
   "/",
   "/today",
-  "/manifest.json",
   "/symbol-transparent.png",
-  "/favicon.png",
-  "/icon-192.png",
 ];
+
+// Pattern-matchers for the routing logic below.
+const PWA_CRITICAL = /^\/(manifest\.json|icon-\d+\.png|apple-touch-icon\.png|favicon\.png)$/;
 
 self.addEventListener("install", (e) => {
   e.waitUntil(
@@ -56,7 +56,7 @@ self.addEventListener("fetch", (e) => {
   if (req.method !== "GET") return;
   const url = new URL(req.url);
 
-  /* Never cache anything dynamic — auth, API, Supabase, Next data. */
+  /* Dynamic stuff: never touched by SW. */
   if (
     url.pathname.startsWith("/api/") ||
     url.pathname.startsWith("/auth/") ||
@@ -67,10 +67,17 @@ self.addEventListener("fetch", (e) => {
     return;
   }
 
-  /* Navigation requests (HTML pages) are NETWORK-FIRST. Returning a
-   * stale /chat or /login HTML from the cache after a fresh build is
-   * what caused the auth loop, so we always try the network first and
-   * only fall back to cache if the user is offline. */
+  /* PWA install files: ALWAYS network. iOS reads these once at install
+   * time to decide standalone vs browser mode — a stale cached copy
+   * here will silently break PWA installation. */
+  if (url.origin === self.location.origin && PWA_CRITICAL.test(url.pathname)) {
+    e.respondWith(
+      fetch(req, { cache: "no-store" }).catch(() => caches.match(req))
+    );
+    return;
+  }
+
+  /* Navigation requests (HTML pages) — network-first. */
   const isNavigation =
     req.mode === "navigate" ||
     (req.headers.get("accept") || "").includes("text/html");
@@ -79,15 +86,15 @@ self.addEventListener("fetch", (e) => {
     e.respondWith(
       fetch(req)
         .then((res) => {
-          // Keep a fresh copy in the cache for offline fallback only —
-          // never serve it on the next online visit.
           if (res && res.status === 200 && res.type === "basic") {
             const copy = res.clone();
             caches.open(CACHE).then((c) => c.put(req, copy)).catch(() => {});
           }
           return res;
         })
-        .catch(() => caches.match(req).then((cached) => cached || caches.match("/")))
+        .catch(() =>
+          caches.match(req).then((cached) => cached || caches.match("/"))
+        )
     );
     return;
   }

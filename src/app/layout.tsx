@@ -28,6 +28,18 @@ export const metadata: Metadata = {
     statusBarStyle: "black-translucent",
   },
 
+  /* Some iOS versions (notably older Safari builds) only honour
+   * the literal apple-mobile-web-app-capable / mobile-web-app-capable
+   * meta tags. Next.js's metadata API SHOULD emit these from
+   * appleWebApp.capable above, but we set them explicitly here too
+   * so the standalone display mode is never missed. */
+  other: {
+    "apple-mobile-web-app-capable": "yes",
+    "mobile-web-app-capable": "yes",
+    "apple-mobile-web-app-status-bar-style": "black-translucent",
+    "apple-mobile-web-app-title": "SELAH",
+  },
+
   icons: {
     icon: [
       { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
