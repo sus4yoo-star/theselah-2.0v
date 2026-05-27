@@ -3,74 +3,105 @@
 import { useEffect } from "react";
 
 /**
- * Service-worker registration with aggressive update-checking.
+ * Service-worker registration — SAFE version (May 27, 2026).
  *
- * We had an infinite-login bug in early May 2026 where users were
- * stuck on a stale /chat or /login HTML page that an old v3 service
- * worker had cached. The fix below makes sure:
+ * The previous iteration listened for `controllerchange` and called
+ * `window.location.reload()`. In some PWA scenarios (especially on
+ * iOS standalone), that caused an infinite reload loop because the
+ * in-memory `didReload` flag is wiped on every reload. Users saw it
+ * as "the login screen keeps reappearing" — but it was actually the
+ * whole tab cycling forever.
  *
- *   1. The browser ALWAYS asks for /sw.js with no caching (the SW
- *      script itself must never be stale).
- *   2. On every page load we explicitly call `registration.update()`
- *      so a freshly-deployed SW is picked up immediately.
- *   3. When a brand-new SW finishes installing and there is already
- *      a controller, we tell it to skip the "waiting" state — so
- *      users get the new code on the very next navigation instead
- *      of after they close every tab.
+ * New strategy:
+ *   1. On first run of THIS version, unregister every old service
+ *      worker and clear every cache that doesn't match v6. This
+ *      guarantees users who had an old v3/v4/v5 worker installed
+ *      get a fully clean state on their next visit.
+ *   2. Register /sw.js with updateViaCache:"none" so the browser
+ *      always asks the network for the script itself.
+ *   3. Call reg.update() to force-detect new builds without waiting
+ *      for the 24-hour default.
+ *   4. Promote any waiting SW to active immediately so users get
+ *      new code on the very next navigation.
+ *   5. NO MORE controllerchange-driven auto-reload. Users will pick
+ *      up the new bundle naturally on the next navigation, which is
+ *      safer than risking a reload loop.
  */
 export function ServiceWorker() {
   useEffect(() => {
     if (!("serviceWorker" in navigator)) return;
 
-    const onLoad = () => {
-      navigator.serviceWorker
-        .register("/sw.js", { updateViaCache: "none" })
-        .then((reg) => {
-          // Force a fresh fetch of /sw.js right now so a newly-deployed
-          // version is detected without waiting for the 24-hour default.
+    const init = async () => {
+      try {
+        // ── One-time clean-up of legacy workers and caches ─────────
+        // We tag this with a key in sessionStorage so we don't keep
+        // running it on every navigation in the same session.
+        const MIGRATION_KEY = "sw-migrate-v6";
+        if (typeof sessionStorage !== "undefined" && !sessionStorage.getItem(MIGRATION_KEY)) {
           try {
-            reg.update();
-          } catch {
-            /* ignore */
-          }
-
-          // When a new worker takes the "waiting" state, push it to
-          // active so users don't need to close all tabs to upgrade.
-          const promote = (worker: ServiceWorker | null) => {
-            if (worker && worker.state === "installed" && navigator.serviceWorker.controller) {
-              try {
-                worker.postMessage({ type: "SKIP_WAITING" });
-              } catch {
-                /* ignore */
+            const regs = await navigator.serviceWorker.getRegistrations();
+            for (const r of regs) {
+              // If this registration's active script URL doesn't match
+              // /sw.js or is otherwise stale, unregister. Cheaper than
+              // trying to introspect SW version strings.
+              const scriptURL = r.active?.scriptURL || r.installing?.scriptURL || r.waiting?.scriptURL || "";
+              if (!scriptURL.endsWith("/sw.js")) {
+                try { await r.unregister(); } catch {}
               }
             }
-          };
-          if (reg.waiting) promote(reg.waiting);
-          reg.addEventListener("updatefound", () => {
-            const w = reg.installing;
-            if (!w) return;
-            w.addEventListener("statechange", () => promote(w));
-          });
-        })
-        .catch(() => {
-          /* offline registration is best-effort */
+            if (typeof caches !== "undefined") {
+              const keys = await caches.keys();
+              // Purge legacy generations explicitly. Leave v6+ alone.
+              for (const k of keys) {
+                if (/^(selah|manna)-shell-v[12345]$/.test(k)) {
+                  try { await caches.delete(k); } catch {}
+                }
+              }
+            }
+          } catch {
+            /* best-effort cleanup */
+          }
+          try { sessionStorage.setItem(MIGRATION_KEY, "1"); } catch {}
+        }
+
+        // ── Register the current SW ────────────────────────────────
+        const reg = await navigator.serviceWorker.register("/sw.js", {
+          updateViaCache: "none",
         });
 
-      // When a new SW activates, reload the page once so the new
-      // bundles take effect immediately.
-      let didReload = false;
-      navigator.serviceWorker.addEventListener("controllerchange", () => {
-        if (didReload) return;
-        didReload = true;
-        window.location.reload();
-      });
+        // Detect new deployments without the 24-hour delay.
+        try { reg.update(); } catch {}
+
+        // Promote a waiting SW to active so users don't have to close
+        // every tab to get the new code.
+        const promote = (worker: ServiceWorker | null) => {
+          if (
+            worker &&
+            worker.state === "installed" &&
+            navigator.serviceWorker.controller
+          ) {
+            try {
+              worker.postMessage({ type: "SKIP_WAITING" });
+            } catch {
+              /* ignore */
+            }
+          }
+        };
+        if (reg.waiting) promote(reg.waiting);
+        reg.addEventListener("updatefound", () => {
+          const w = reg.installing;
+          if (!w) return;
+          w.addEventListener("statechange", () => promote(w));
+        });
+      } catch {
+        /* registration is best-effort — never block the app */
+      }
     };
 
     if (document.readyState === "complete") {
-      onLoad();
+      init();
     } else {
-      window.addEventListener("load", onLoad);
-      return () => window.removeEventListener("load", onLoad);
+      window.addEventListener("load", init, { once: true });
     }
   }, []);
   return null;

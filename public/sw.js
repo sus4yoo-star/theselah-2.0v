@@ -21,7 +21,9 @@ const PRECACHE = [
 ];
 
 // Pattern-matchers for the routing logic below.
-const PWA_CRITICAL = /^\/(manifest\.json|icon-\d+\.png|apple-touch-icon\.png|favicon\.png)$/;
+// Note: sw.js MUST be here — if the SW caches its own script, users can
+// get permanently stuck on an old version even after a new deploy.
+const PWA_CRITICAL = /^\/(sw\.js|manifest\.json|icon-\d+\.png|apple-touch-icon\.png|favicon\.png)$/;
 
 self.addEventListener("install", (e) => {
   e.waitUntil(
