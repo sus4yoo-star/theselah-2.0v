@@ -70,6 +70,27 @@ export default function RemindersPage() {
     })();
   }, []);
 
+  /* Re-check permission whenever the page becomes visible again. iOS PWA
+   * users typically: tap "enable" → deny → realize → go to Settings.app →
+   * toggle SELAH/MANNA notifications back on → swipe back to the PWA.
+   * At that point Notification.permission has flipped under us; we need to
+   * pick it up without making them refresh. */
+  React.useEffect(() => {
+    if (typeof document === "undefined") return;
+    const onVis = () => {
+      if (document.visibilityState === "visible") {
+        setPerm(notificationPermission());
+        setSupported(pushSupported());
+      }
+    };
+    document.addEventListener("visibilitychange", onVis);
+    window.addEventListener("focus", onVis);
+    return () => {
+      document.removeEventListener("visibilitychange", onVis);
+      window.removeEventListener("focus", onVis);
+    };
+  }, []);
+
   const flash = (kind: "ok" | "err", text: string) => {
     if (kind === "ok") {
       setSavedNote(text);
@@ -97,6 +118,54 @@ export default function RemindersPage() {
       body: JSON.stringify(body),
     });
     if (!res.ok) throw new Error("save-failed");
+  };
+
+  /* Drift detection: DB says enabled, but the browser has no active push
+   * subscription (e.g. user removed the PWA, cleared site data, granted
+   * permission after the fact, …). We surface this so they can tap to fix. */
+  const [driftDetected, setDriftDetected] = React.useState(false);
+  React.useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (!enabled || !pushSupported()) {
+        setDriftDetected(false);
+        return;
+      }
+      try {
+        const reg = await navigator.serviceWorker.ready;
+        const sub = await reg.pushManager.getSubscription();
+        if (!cancelled) setDriftDetected(!sub);
+      } catch {
+        if (!cancelled) setDriftDetected(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [enabled, perm]);
+
+  const handleResubscribe = async () => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      const p = await requestPermission();
+      setPerm(p);
+      if (p !== "granted") {
+        flash("err", fs.reminderPermissionDenied);
+        return;
+      }
+      const sub = await subscribePush();
+      if (!sub.ok) {
+        flash("err", fs.reminderPermissionDenied);
+        return;
+      }
+      setDriftDetected(false);
+      flash("ok", lang === "ko" ? "다시 연결되었어요." : "Reconnected.");
+    } catch {
+      flash("err", fs.reminderPermissionDenied);
+    } finally {
+      setBusy(false);
+    }
   };
 
   const handleEnable = async () => {
@@ -169,13 +238,52 @@ export default function RemindersPage() {
         method: "POST",
         credentials: "include",
       });
-      if (res.ok) {
+      // Try to parse the body so we can surface the real failure reason.
+      // If parsing fails (network glitch, HTML error page) fall back to a
+      // generic message.
+      const data = await res.json().catch(() => ({} as any));
+
+      if (res.ok && (data?.sent ?? 0) > 0) {
         flash("ok", fs.reminderTestSent);
+      } else if (data?.error === "vapid-missing") {
+        flash(
+          "err",
+          lang === "ko"
+            ? "서버에 VAPID 키가 아직 설정되지 않았어요. (PRAYER_REMINDERS_SETUP.md 3단계 참고)"
+            : "Server VAPID keys aren't configured yet. (See PRAYER_REMINDERS_SETUP.md step 3.)"
+        );
+      } else if (data?.error === "no-subscriptions") {
+        flash(
+          "err",
+          lang === "ko"
+            ? "이 기기에서 알림 등록이 풀려있어요. 위의 [리마인더 끄기] → [리마인더 켜기]를 다시 눌러 주세요."
+            : "This device isn't registered. Tap Disable then Enable reminders again."
+        );
+      } else if (data?.error === "auth" || res.status === 401) {
+        flash(
+          "err",
+          lang === "ko" ? "로그인이 필요해요." : "Please sign in first."
+        );
+      } else if (res.ok && (data?.sent ?? 0) === 0) {
+        flash(
+          "err",
+          lang === "ko"
+            ? "등록된 모든 디바이스의 알림 권한이 만료되었어요. 위의 [리마인더 끄기] → [리마인더 켜기]를 다시 눌러 주세요."
+            : "All registered devices have expired permissions. Re-toggle the reminder."
+        );
       } else {
-        flash("err", fs.reminderPermissionDenied);
+        flash(
+          "err",
+          lang === "ko"
+            ? "전송에 실패했어요. 잠시 후 다시 시도해 주세요."
+            : "Send failed. Please try again shortly."
+        );
       }
     } catch {
-      flash("err", fs.reminderPermissionDenied);
+      flash(
+        "err",
+        lang === "ko" ? "네트워크 오류가 발생했어요." : "Network error."
+      );
     } finally {
       setTesting(false);
     }
@@ -183,7 +291,10 @@ export default function RemindersPage() {
 
   return (
     <main className="selah-aurora selah-scroll min-h-dvh overflow-y-auto pb-12">
-      <header className="sticky top-0 z-10 border-b border-white/[0.06] bg-selah-bg/85 backdrop-blur pt-[env(safe-area-inset-top)]">
+      <header
+        className="sticky top-0 z-10 border-b border-white/[0.06] bg-selah-bg/85 backdrop-blur"
+        style={{ paddingTop: "env(safe-area-inset-top)" }}
+      >
         <div className="mx-auto flex max-w-2xl items-center gap-3 px-5 py-3">
           <Link
             href="/chat"
@@ -242,9 +353,35 @@ export default function RemindersPage() {
               </div>
             </div>
 
+            {/* Drift banner: DB says enabled, but no active subscription on
+             * this device. Most common cause: user reset/reinstalled the PWA,
+             * or denied then re-allowed permission via OS settings. */}
+            {driftDetected && (
+              <div className="mb-4 rounded-2xl border border-amber-300/25 bg-amber-300/[0.06] p-4">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-200" />
+                  <div className="flex-1 text-[13px] text-amber-50/90">
+                    <p className="mb-2">
+                      {lang === "ko"
+                        ? "이 기기에서 알림 등록이 풀려있어요. 다시 연결하면 푸시를 받을 수 있어요."
+                        : "Notifications aren't registered on this device. Reconnect to receive pushes."}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={handleResubscribe}
+                      disabled={busy}
+                      className="rounded-full bg-amber-200/15 px-3 py-1 text-[12px] font-medium text-amber-100 hover:bg-amber-200/25 disabled:opacity-50"
+                    >
+                      {busy ? "..." : lang === "ko" ? "다시 연결하기" : "Reconnect"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Time + message */}
             <div className="space-y-3">
-              <div className="rounded-2xl border border-white/[0.06] bg-selah-bg1/40 px-5 py-4">
+              <div className="overflow-hidden rounded-2xl border border-white/[0.06] bg-selah-bg1/40 px-5 py-4">
                 <label className="mb-2 block text-[12px] uppercase tracking-[0.14em] text-selah-cream3">
                   {fs.reminderTime}
                 </label>
@@ -252,7 +389,16 @@ export default function RemindersPage() {
                   type="time"
                   value={hhmm}
                   onChange={(e) => setHhmm(e.target.value)}
-                  className="w-full rounded-xl border border-white/[0.08] bg-selah-bg/40 px-4 py-3 text-[16px] text-selah-cream outline-none focus:border-selah-gold/45"
+                  // Inline style forces box-sizing + width 100% even when iOS
+                  // tries to size the native picker to its content. The combo
+                  // of min-w-0 + w-full alone wasn't enough in some webviews.
+                  style={{
+                    width: "100%",
+                    maxWidth: "100%",
+                    boxSizing: "border-box",
+                    WebkitAppearance: "none",
+                  }}
+                  className="block min-w-0 rounded-xl border border-white/[0.08] bg-selah-bg/40 px-4 py-3 text-center text-[16px] text-selah-cream outline-none focus:border-selah-gold/45"
                 />
                 <p className="mt-1 text-[11px] text-selah-cream3">
                   {tz}
