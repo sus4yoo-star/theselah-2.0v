@@ -28,7 +28,6 @@ function PrayerShareActions({
   messageId,
   sessionId,
   text,
-  reference,
   lang,
   variant,
   brandLabel,
@@ -36,7 +35,6 @@ function PrayerShareActions({
   messageId: string;
   sessionId: string | null;
   text: string;
-  reference?: string;
   lang: LangCode;
   variant: "selah" | "manna";
   brandLabel: string;
@@ -72,12 +70,12 @@ function PrayerShareActions({
   }, [ttsAuto, text]);
 
   const composed = React.useMemo(() => {
-    const body = text.trim();
-    if (reference && reference.trim()) {
-      return `${body}\n\n— ${reference.trim()}`;
-    }
-    return body;
-  }, [text, reference]);
+    // Prayer text is the whole share payload. The scripture reference belongs
+    // to a different section of the AI reply and was leaking into prayer shares
+    // (e.g. "기도하는 내용 — 시편 23:1"), which made KakaoTalk previews look
+    // wrong. Prayers stand alone now.
+    return text.trim();
+  }, [text]);
 
   const canShare =
     typeof navigator !== "undefined" &&
@@ -116,15 +114,15 @@ function PrayerShareActions({
     try {
       const svg = buildCardSvg({
         variant,
+        shape: "prayer",         // ← no reference on prayer cards
         brandLabel,
         tagline: variant === "selah" ? "Pause before you respond" : "Walk with you",
         body: text,
-        reference,
-        footer: "Powered by AMOV",
+        footer: variant === "selah" ? "selah.theamov.com" : "manna.amov.kr",
       });
-      const blob = await svgToPngBlob(svg, 1080);
+      // svgToPngBlob defaults to 1080×1920 now — matches the new card shape.
+      const blob = await svgToPngBlob(svg);
 
-      // Try Web Share with the file first (mobile → IG Story / KakaoTalk).
       const file = new File([blob], `${variant}-${Date.now()}.png`, {
         type: "image/png",
       });
@@ -463,7 +461,6 @@ export function MessageBubble({
                 messageId={message.id}
                 sessionId={sessionId}
                 text={parsed.prayer}
-                reference={parsed.scripture?.ref}
                 lang={lang}
                 variant="selah"
                 brandLabel="SELAH"

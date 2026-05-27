@@ -97,6 +97,36 @@ export interface FeatureStrings {
   crossLinkMannaToSelahBody: string;
   crossLinkOpen: string;
   crossLinkDismiss: string;
+
+  // ── 2026.05.27 — Round 6: journey + reminders ─────────────────
+  journeyTitle: string;
+  journeyOpen: string;
+  journeyEmpty: string;
+  journeyActiveDays: string;
+  journeyPositive: string;
+  journeyHard: string;
+  journeyValence: string;
+  journeyRecent: string;
+  journeyNoLabels: string;
+  journeyDisclaimer: string;
+
+  journalExport: string;
+  journalExporting: string;
+  journalReady: string;
+
+  reminderTitle: string;
+  reminderEnable: string;
+  reminderDisable: string;
+  reminderTime: string;
+  reminderMessage: string;
+  reminderPermissionAsk: string;
+  reminderPermissionDenied: string;
+  reminderUnsupported: string;
+  reminderSaved: string;
+  reminderDefaultMsgSelah: string;
+  reminderDefaultMsgManna: string;
+  reminderTestSend: string;
+  reminderTestSent: string;
 }
 
 const ko: FeatureStrings = {
@@ -189,6 +219,39 @@ const ko: FeatureStrings = {
     "셀라에서는 신앙 안에서 함께 기도하고 말씀을 나눌 수 있어요.",
   crossLinkOpen: "열어보기",
   crossLinkDismiss: "다음에",
+
+  journeyTitle: "마음의 흐름",
+  journeyOpen: "마음의 흐름 보기",
+  journeyEmpty: "아직 기록된 대화가 충분하지 않아요. 며칠 동안 마음을 나눠보시면, 흐름이 보일 거예요.",
+  journeyActiveDays: "기록한 날",
+  journeyPositive: "평안한 날",
+  journeyHard: "버거운 날",
+  journeyValence: "마음",
+  journeyRecent: "최근의 마음",
+  journeyNoLabels: "최근 대화에서 두드러진 감정이 잡히지 않았어요.",
+  journeyDisclaimer:
+    "이 그래프는 진단이 아니라, 흐름을 부드럽게 비춰주는 거울입니다.",
+
+  journalExport: "신앙일지 PDF",
+  journalExporting: "만드는 중…",
+  journalReady: "저장됨",
+
+  reminderTitle: "기도 리마인더",
+  reminderEnable: "리마인더 켜기",
+  reminderDisable: "리마인더 끄기",
+  reminderTime: "알림 시간",
+  reminderMessage: "알림 문구 (옵션)",
+  reminderPermissionAsk:
+    "알림을 보내려면 브라우저 권한이 필요합니다. 허용하시겠어요?",
+  reminderPermissionDenied:
+    "알림이 차단되어 있어요. 브라우저 설정에서 알림을 허용한 뒤 다시 시도해 주세요.",
+  reminderUnsupported:
+    "이 기기/브라우저에서는 푸시 알림이 지원되지 않아요. PWA로 설치하면 사용할 수 있어요.",
+  reminderSaved: "저장되었어요. 매일 알려드릴게요.",
+  reminderDefaultMsgSelah: "잠시 멈춰, 오늘 마음을 하나님께 올려드려 보세요.",
+  reminderDefaultMsgManna: "오늘 하루, 자신에게 한 번 부드러워지는 시간을 가져보세요.",
+  reminderTestSend: "지금 한 번 보내보기",
+  reminderTestSent: "방금 보냈어요. 알림이 안 보이면 권한을 확인해 주세요.",
 };
 
 const en: FeatureStrings = {
@@ -281,6 +344,39 @@ const en: FeatureStrings = {
     "In SELAH you can pray and reflect on Scripture together.",
   crossLinkOpen: "Open",
   crossLinkDismiss: "Later",
+
+  journeyTitle: "Your Journey",
+  journeyOpen: "View your journey",
+  journeyEmpty: "Not enough conversations yet. Share your heart for a few days and a pattern will appear.",
+  journeyActiveDays: "Active days",
+  journeyPositive: "Lighter days",
+  journeyHard: "Heavier days",
+  journeyValence: "Mood",
+  journeyRecent: "Recent feelings",
+  journeyNoLabels: "No dominant feeling detected in recent messages.",
+  journeyDisclaimer:
+    "This graph is a gentle mirror — not a diagnosis.",
+
+  journalExport: "Faith Journal PDF",
+  journalExporting: "Building…",
+  journalReady: "Saved",
+
+  reminderTitle: "Prayer Reminders",
+  reminderEnable: "Enable reminders",
+  reminderDisable: "Disable reminders",
+  reminderTime: "Time",
+  reminderMessage: "Message (optional)",
+  reminderPermissionAsk:
+    "Sending notifications requires browser permission. Allow?",
+  reminderPermissionDenied:
+    "Notifications are blocked. Please allow them in browser settings and try again.",
+  reminderUnsupported:
+    "Push notifications aren't supported on this device/browser. Install as a PWA to enable them.",
+  reminderSaved: "Saved. We'll remind you every day.",
+  reminderDefaultMsgSelah: "Pause for a moment and lift today's heart to God.",
+  reminderDefaultMsgManna: "Take a moment today to be gentle with yourself.",
+  reminderTestSend: "Send a test now",
+  reminderTestSent: "Sent. If you don't see it, check your permissions.",
 };
 
 /**

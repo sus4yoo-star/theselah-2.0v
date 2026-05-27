@@ -1,7 +1,7 @@
 /* SELAH service worker, v3. Bump the version string at the top whenever
  * shipping a new build — that's the lever that clears users' stale shell
  * cache so they pick up new code on next visit. */
-const CACHE = "selah-shell-v3";
+const CACHE = "selah-shell-v4";
 
 /* Files that should be available even when the user is offline. The list
  * is intentionally small so install never fails on a slow connection. */
@@ -84,4 +84,56 @@ self.addEventListener("message", (e) => {
   if (e.data && e.data.type === "SKIP_WAITING") {
     self.skipWaiting();
   }
+});
+
+/* ── Web Push ──────────────────────────────────────────────────────
+ * Triggered by the cron job. Payload is a JSON string:
+ *   { title, body, url? }
+ * If the payload is missing or malformed we fall back to a generic
+ * reminder so the user still gets a nudge. */
+self.addEventListener("push", (e) => {
+  let data = { title: "SELAH", body: "잠시 멈춰, 오늘 마음을 올려드려 보세요.", url: "/chat" };
+  if (e.data) {
+    try {
+      const parsed = e.data.json();
+      data = { ...data, ...parsed };
+    } catch {
+      try {
+        data.body = e.data.text();
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+  e.waitUntil(
+    self.registration.showNotification(data.title, {
+      body: data.body,
+      icon: "/icon-192.png",
+      badge: "/icon-192.png",
+      data: { url: data.url || "/chat" },
+      // tag so a backlog of unread reminders collapses into one
+      tag: "selah-reminder",
+      renotify: false,
+    })
+  );
+});
+
+/* Open / focus the app when a reminder is tapped. */
+self.addEventListener("notificationclick", (e) => {
+  e.notification.close();
+  const target = (e.notification.data && e.notification.data.url) || "/chat";
+  e.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((all) => {
+      for (const client of all) {
+        if ("focus" in client) {
+          client.focus();
+          if ("navigate" in client) {
+            try { client.navigate(target); } catch { /* ignore */ }
+          }
+          return;
+        }
+      }
+      if (self.clients.openWindow) return self.clients.openWindow(target);
+    })
+  );
 });
