@@ -206,7 +206,10 @@ export default function JourneyPage() {
 
   return (
     <main className="selah-aurora selah-scroll min-h-dvh overflow-y-auto pb-12">
-      <header className="sticky top-0 z-10 border-b border-white/[0.06] bg-selah-bg/85 backdrop-blur pt-[env(safe-area-inset-top)]">
+      <header
+        className="sticky top-0 z-10 border-b border-white/[0.06] bg-selah-bg/85 backdrop-blur"
+        style={{ paddingTop: "env(safe-area-inset-top)" }}
+      >
         <div className="mx-auto flex max-w-3xl items-center gap-3 px-5 py-3">
           <Link
             href="/chat"
