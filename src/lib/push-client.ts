@@ -1,3 +1,4 @@
+import { authedFetch } from "@/lib/api";
 /**
  * Push subscription helper.
  *
@@ -83,7 +84,7 @@ export async function subscribePush(): Promise<SubscribeResult> {
 
   // Persist on our server. Endpoint dedupes via unique(endpoint) at the DB.
   try {
-    const res = await fetch("/api/push/subscribe", {
+    const res = await authedFetch("/api/push/subscribe", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
@@ -110,7 +111,7 @@ export async function unsubscribePush(): Promise<void> {
     const reg = await navigator.serviceWorker.ready;
     const sub = await reg.pushManager.getSubscription();
     if (sub) {
-      await fetch("/api/push/unsubscribe", {
+      await authedFetch("/api/push/unsubscribe", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ endpoint: sub.endpoint }),

@@ -10,6 +10,7 @@ import type {
 } from "@/lib/types";
 import { useLanguage } from "@/components/language-provider";
 import { createClient } from "@/lib/supabase/client";
+import { authedFetch } from "@/lib/api";
 import {
   createSession,
   renameSession,
@@ -223,7 +224,7 @@ export function ChatApp({
         { role: "user", content: text },
       ];
 
-      const res = await fetch("/api/chat", {
+      const res = await authedFetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

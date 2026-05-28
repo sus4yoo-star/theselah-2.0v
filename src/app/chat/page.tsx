@@ -1,67 +1,85 @@
-import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+"use client";
+
+import * as React from "react";
+import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
 import { ChatApp } from "@/components/chat/chat-app";
+import { Loader2 } from "lucide-react";
 import type { ChatSession, Profile } from "@/lib/types";
 
-export const dynamic = "force-dynamic";
+/**
+ * Client-side /chat with an auth guard.
+ *
+ * In the static (Capacitor) build there is no server to do the auth
+ * check, so we do it here: read the session on the client, and if the
+ * user isn't signed in, send them to /login. While we resolve the
+ * session we show a quiet loading state so there's no flash of the chat
+ * UI for signed-out users.
+ *
+ * Initial sessions + profile, which the old server component fetched and
+ * passed as props, are now fetched client-side right here.
+ */
+export default function ChatPage() {
+  const router = useRouter();
+  const [ready, setReady] = React.useState(false);
+  const [userId, setUserId] = React.useState<string>("");
+  const [userEmail, setUserEmail] = React.useState<string>("");
+  const [sessions, setSessions] = React.useState<ChatSession[]>([]);
+  const [profile, setProfile] = React.useState<Profile | null>(null);
 
-export default async function ChatPage() {
-  // Resolve the user defensively: if Supabase isn't configured (or the
-  // request fails) we send the visitor to /login instead of throwing a
-  // server-side exception. redirect() must stay OUTSIDE the try/catch
-  // because it works by throwing a special control-flow signal.
-  let userId: string | null = null;
-  let userEmail = "";
-  let sessions: ChatSession[] = [];
-  let profile: Profile | null = null;
+  React.useEffect(() => {
+    let cancelled = false;
 
-  try {
-    const supabase = await createClient();
+    (async () => {
+      try {
+        const supabase = createClient();
 
-    // Resolve the user with a tolerant two-step probe.
-    //
-    // We try `getUser()` first — it's authoritative because it actually
-    // verifies the JWT against Supabase. But there is a small window
-    // immediately after login where the auth-token cookie is present
-    // but the JWT verification hasn't propagated yet (or the network
-    // call hiccups). In that window `getUser()` returns null even
-    // though the session in the cookie is perfectly valid. Without a
-    // fallback that's exactly the moment we'd redirect the user back
-    // to /login — the "have to log in twice" bug.
-    //
-    // So if `getUser()` comes up empty, we read the local session
-    // straight from the cookie via `getSession()`. If a session exists
-    // there we trust it for this request. The next navigation will go
-    // through middleware which re-verifies properly.
-    let user = (await supabase.auth.getUser()).data.user;
-    if (!user) {
-      const { data } = await supabase.auth.getSession();
-      if (data.session?.user) {
-        user = data.session.user;
+        // Two-step probe, same tolerance as the old server component:
+        // getUser() is authoritative; fall back to the cookie session
+        // if it briefly returns null right after login.
+        let user = (await supabase.auth.getUser()).data.user;
+        if (!user) {
+          const { data } = await supabase.auth.getSession();
+          user = data.session?.user ?? null;
+        }
+
+        if (!user) {
+          router.replace("/login?next=/chat");
+          return;
+        }
+
+        if (cancelled) return;
+        setUserId(user.id);
+        setUserEmail(user.email ?? "");
+
+        const [sRes, pRes] = await Promise.all([
+          supabase
+            .from("chat_sessions")
+            .select("*")
+            .order("updated_at", { ascending: false }),
+          supabase.from("profiles").select("*").eq("id", user.id).single(),
+        ]);
+
+        if (cancelled) return;
+        setSessions((sRes.data as ChatSession[]) || []);
+        setProfile((pRes.data as Profile) || null);
+        setReady(true);
+      } catch {
+        if (!cancelled) router.replace("/login?next=/chat");
       }
-    }
+    })();
 
-    if (user) {
-      userId = user.id;
-      userEmail = user.email ?? "";
+    return () => {
+      cancelled = true;
+    };
+  }, [router]);
 
-      const [sRes, pRes] = await Promise.all([
-        supabase
-          .from("chat_sessions")
-          .select("*")
-          .order("updated_at", { ascending: false }),
-        supabase.from("profiles").select("*").eq("id", user.id).single(),
-      ]);
-
-      sessions = (sRes.data as ChatSession[]) || [];
-      profile = (pRes.data as Profile) || null;
-    }
-  } catch {
-    userId = null;
-  }
-
-  if (!userId) {
-    redirect("/login?next=/chat");
+  if (!ready) {
+    return (
+      <main className="selah-aurora flex min-h-dvh items-center justify-center">
+        <Loader2 className="h-7 w-7 animate-spin text-selah-gold/70" />
+      </main>
+    );
   }
 
   return (

@@ -12,6 +12,7 @@ import {
   subscribePush,
   unsubscribePush,
 } from "@/lib/push-client";
+import { authedFetch } from "@/lib/api";
 import { AmovFooter } from "@/components/amov-footer";
 import { NotificationHelpCard } from "@/components/chat/notification-help-card";
 
@@ -51,7 +52,7 @@ export default function RemindersPage() {
 
     (async () => {
       try {
-        const res = await fetch("/api/reminders", { credentials: "include" });
+        const res = await authedFetch("/api/reminders");
         if (res.ok) {
           const j = await res.json();
           const r: RemRow | null = j.reminder;
@@ -111,7 +112,7 @@ export default function RemindersPage() {
       message: message.trim() || null,
       lang,
     };
-    const res = await fetch("/api/reminders", {
+    const res = await authedFetch("/api/reminders", {
       method: "POST",
       headers: { "content-type": "application/json" },
       credentials: "include",
@@ -234,7 +235,7 @@ export default function RemindersPage() {
     if (testing) return;
     setTesting(true);
     try {
-      const res = await fetch("/api/push/test", {
+      const res = await authedFetch("/api/push/test", {
         method: "POST",
         credentials: "include",
       });

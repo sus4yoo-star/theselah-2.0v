@@ -1,7 +1,8 @@
 import { NextRequest } from "next/server";
 import { buildSystemPrompt, classifyIntent } from "@/lib/prompt";
 import { normalizeLang, detectLangFromText } from "@/lib/i18n";
-import { createClient } from "@/lib/supabase/server";
+import { getApiAuth } from "@/lib/supabase/api-auth";
+import { withCors, preflight } from "@/lib/cors";
 import { loadUserMemory, updateUserMemory } from "@/lib/selah-memory";
 import {
   ANTHROPIC_VERSION,
@@ -11,6 +12,12 @@ import {
 import type { LangCode } from "@/lib/types";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+// CORS preflight for the cross-origin mobile app.
+export async function OPTIONS() {
+  return preflight();
+}
 export const dynamic = "force-dynamic";
 
 interface InMsg {
@@ -37,26 +44,21 @@ function lastUserText(messages: InMsg[]): string {
 
 export async function POST(req: NextRequest) {
   // Only signed-in users may reach the model — protects the API key.
+  // Accepts both cookie auth (web) and Bearer token (mobile app).
   let supabase: any;
   let userId = "";
-  try {
-    supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) {
-      return new Response(
-        JSON.stringify({ error: "Please sign in to continue." }),
-        { status: 401, headers: { "Content-Type": "application/json" } }
-      );
-    }
-    userId = user.id;
-  } catch {
+  const auth = await getApiAuth(req);
+  if (!auth) {
     return new Response(
-      JSON.stringify({ error: "Authentication check failed." }),
-      { status: 401, headers: { "Content-Type": "application/json" } }
+      JSON.stringify({ error: "Please sign in to continue." }),
+      {
+        status: 401,
+        headers: withCors({ "Content-Type": "application/json" }),
+      }
     );
   }
+  supabase = auth.supabase;
+  userId = auth.user.id;
 
   let body: Body;
   try {
@@ -72,7 +74,7 @@ export async function POST(req: NextRequest) {
         error:
           "ANTHROPIC_API_KEY is not configured. Add it in your environment variables.",
       }),
-      { status: 500, headers: { "Content-Type": "application/json" } }
+      { status: 500, headers: withCors({ "Content-Type": "application/json" }) }
     );
   }
 
@@ -207,7 +209,7 @@ export async function POST(req: NextRequest) {
             ? "Anthropic authentication failed. Check ANTHROPIC_API_KEY."
             : `Anthropic request failed${detail ? `: ${detail}` : "."}`,
       }),
-      { status, headers: { "Content-Type": "application/json" } }
+      { status, headers: withCors({ "Content-Type": "application/json" }) }
     );
   }
 
@@ -303,13 +305,13 @@ export async function POST(req: NextRequest) {
   });
 
   return new Response(stream, {
-    headers: {
+    headers: withCors({
       "Content-Type": "text/plain; charset=utf-8",
       "Cache-Control": "no-cache, no-transform",
       "X-Accel-Buffering": "no",
       "X-Selah-Intent": intent,
       "X-Selah-Lang": lang,
       "X-Selah-Model": model,
-    },
+    }),
   });
 }

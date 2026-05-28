@@ -1,8 +1,14 @@
-import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { NextResponse, type NextRequest } from "next/server";
+import { getApiAuth } from "@/lib/supabase/api-auth";
+import { CORS_HEADERS, preflight } from "@/lib/cors";
 import { sendPush, pushReady } from "@/lib/push-server";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+export async function OPTIONS() {
+  return preflight();
+}
 
 /**
  * Used by the Reminders settings page so the user can verify the loop
@@ -10,19 +16,29 @@ export const runtime = "nodejs";
  * user has — phone + laptop alike — using their stored preferences for
  * the message body.
  */
-export async function POST() {
+export async function POST(req: NextRequest) {
   if (!pushReady()) {
-    return NextResponse.json({ ok: false, error: "vapid-missing" }, { status: 503 });
+    return NextResponse.json(
+      { ok: false, error: "vapid-missing" },
+      { status: 503, headers: CORS_HEADERS }
+    );
   }
-  const supabase = await createClient();
-  const { data: u } = await supabase.auth.getUser();
-  if (!u.user) {
-    return NextResponse.json({ ok: false, error: "auth" }, { status: 401 });
+  const authed = await getApiAuth(req);
+  if (!authed) {
+    return NextResponse.json(
+      { ok: false, error: "auth" },
+      { status: 401, headers: CORS_HEADERS }
+    );
   }
+  const { supabase, user } = authed;
 
   const [{ data: subs }, { data: pref }] = await Promise.all([
-    supabase.from("push_subscriptions").select("*").eq("user_id", u.user.id),
-    supabase.from("prayer_reminders").select("*").eq("user_id", u.user.id).single(),
+    supabase.from("push_subscriptions").select("*").eq("user_id", user.id),
+    supabase
+      .from("prayer_reminders")
+      .select("*")
+      .eq("user_id", user.id)
+      .single(),
   ]);
 
   const body =
@@ -33,7 +49,10 @@ export async function POST() {
 
   const subsArr = (subs as any[]) || [];
   if (subsArr.length === 0) {
-    return NextResponse.json({ ok: false, error: "no-subscriptions" }, { status: 404 });
+    return NextResponse.json(
+      { ok: false, error: "no-subscriptions" },
+      { status: 404, headers: CORS_HEADERS }
+    );
   }
 
   let sent = 0;
@@ -45,9 +64,15 @@ export async function POST() {
     if (res.ok) {
       sent++;
     } else if (res.gone) {
-      await supabase.from("push_subscriptions").delete().eq("endpoint", s.endpoint);
+      await supabase
+        .from("push_subscriptions")
+        .delete()
+        .eq("endpoint", s.endpoint);
     }
   }
 
-  return NextResponse.json({ ok: true, sent, total: subsArr.length });
+  return NextResponse.json(
+    { ok: true, sent, total: subsArr.length },
+    { headers: CORS_HEADERS }
+  );
 }
