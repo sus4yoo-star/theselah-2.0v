@@ -18,7 +18,6 @@ export const dynamic = "force-dynamic";
 export async function OPTIONS() {
   return preflight();
 }
-export const dynamic = "force-dynamic";
 
 interface InMsg {
   role: "user" | "assistant";
