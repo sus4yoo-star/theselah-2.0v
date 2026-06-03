@@ -1,4 +1,10 @@
-export type LangCode = "ko" | "en" | "th" | "es" | "pt" | "hi" | "zh";
+export type LangCode =
+  | "ko" | "en" | "ja" | "zh" | "zh-TW"
+  | "es" | "pt" | "fr" | "de" | "it" | "nl"
+  | "ru" | "uk" | "pl" | "cs" | "hu" | "ro" | "tr"
+  | "th" | "vi" | "id" | "ms" | "tl"
+  | "hi" | "bn" | "ta" | "te"
+  | "ar" | "fa" | "sw";
 
 export type Role = "user" | "assistant";
 
