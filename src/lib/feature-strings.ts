@@ -380,9 +380,17 @@ const en: FeatureStrings = {
 };
 
 /**
- * Crisis hotlines. Korean speakers get the Korean numbers; everyone
- * else gets a universal-ish English set. Adding more locale-specific
- * numbers later is straightforward.
+ * Crisis hotlines.
+ *
+ * SAFETY RULE: we never invent phone numbers. Only Korea and the US ship
+ * verified, hard-coded numbers here. EVERY card additionally links to
+ * findahelpline.com — an international directory that auto-detects the
+ * visitor's country and lists vetted local services — so a real, safe next
+ * step exists for every language even when we don't carry a local number.
+ *
+ * For all other languages we deliberately show NO phone number (guessing a
+ * number for the wrong country is worse than none) and rely on the
+ * location-aware findahelpline.com directory instead.
  */
 export interface Hotline {
   label: string;
@@ -390,21 +398,33 @@ export interface Hotline {
   hours?: string;
 }
 
+// Universal safety net included on every crisis card. The value is a domain,
+// not digits, so the card renders it as a link (auto-detects the user's
+// country) rather than a phone number.
+const FIND_A_HELPLINE: Hotline = {
+  label: "Find a Helpline (worldwide)",
+  number: "findahelpline.com",
+};
+
 export function hotlinesFor(lang: LangCode): Hotline[] {
   if (lang === "ko") {
     return [
-      { label: "자살예방상담전화", number: "1393", hours: "24시간 · 무료" },
-      { label: "정신건강위기상담", number: "1577-0199" },
-      { label: "청소년전화", number: "1388" },
-      { label: "응급", number: "119" },
+      { label: "자살예방 상담전화", number: "109", hours: "24시간 · 무료" },
+      { label: "정신건강 위기상담", number: "1577-0199" },
+      { label: "청소년 전화", number: "1388" },
+      { label: "생명의전화", number: "1588-9191" },
+      { label: "전 세계 상담 찾기 (Find a Helpline)", number: "findahelpline.com" },
     ];
   }
-  // English / international fallback.
-  return [
-    { label: "Suicide & Crisis Lifeline (US)", number: "988" },
-    { label: "Emergency (US)", number: "911" },
-    { label: "Find a Helpline (international)", number: "findahelpline.com" },
-  ];
+  if (lang === "en") {
+    return [
+      { label: "Suicide & Crisis Lifeline (US)", number: "988", hours: "24/7" },
+      FIND_A_HELPLINE,
+    ];
+  }
+  // Every other language: no invented numbers — findahelpline.com detects
+  // the user's location and lists verified local services.
+  return [FIND_A_HELPLINE];
 }
 
 const TABLE: Partial<Record<LangCode, FeatureStrings>> = { ko, en };

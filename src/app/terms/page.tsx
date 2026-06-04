@@ -169,7 +169,7 @@ export default function TermsPage() {
                   심각한 정신적·신체적 어려움을 겪고 있다면, 즉시 전문가의
                   도움을 받으시기 바랍니다.
                   <ul className="list-disc pl-6 mt-1 space-y-0.5 text-sm">
-                    <li>자살예방상담전화: 1393 (24시간)</li>
+                    <li>자살예방 상담전화: 109 (24시간)</li>
                     <li>정신건강위기상담: 1577-0199</li>
                     <li>응급상황: 119</li>
                   </ul>
