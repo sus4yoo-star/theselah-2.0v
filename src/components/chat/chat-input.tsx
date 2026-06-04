@@ -212,6 +212,9 @@ export function ChatInput({
       {image && (
         <div className="mx-auto mb-2 flex w-full max-w-2xl">
           <div className="relative">
+            {/* User-selected attachment shown as a base64 data URL of unknown
+                dimensions — next/image is not the right tool here. */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={image}
               alt=""

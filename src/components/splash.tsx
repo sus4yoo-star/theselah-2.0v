@@ -53,6 +53,10 @@ export function Splash() {
             animation: "selahSplashAura 2.4s ease-in-out infinite",
           }}
         />
+        {/* Full-bleed animated splash mark sized via inline styles to fill
+            its container; keep a plain img so the breathing animation and
+            drop-shadow render exactly as designed. */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src="/symbol-transparent.png"
           alt=""

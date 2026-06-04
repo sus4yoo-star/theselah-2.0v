@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { Share2, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AmovFooter } from "@/components/amov-footer";
@@ -105,9 +106,11 @@ export default function TodayPage() {
 
       <div className="flex w-full max-w-md flex-col items-center">
         <div className="relative mb-5 flex h-20 w-28 items-center justify-center animate-fade-in">
-          <img
+          <Image
             src="/symbol-transparent.png"
             alt=""
+            width={112}
+            height={80}
             className="relative h-20 w-28 object-contain drop-shadow-[0_0_22px_rgba(212,175,55,0.38)]"
           />
         </div>

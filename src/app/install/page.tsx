@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import {
   Share,
   Plus,
@@ -93,9 +94,11 @@ export default function InstallPage() {
             className="absolute left-1/2 top-1/2 h-32 w-32 animate-breathe rounded-full bg-selah-gold/10 blur-2xl"
             aria-hidden
           />
-          <img
+          <Image
             src="/symbol-transparent.png"
             alt="SELAH"
+            width={128}
+            height={96}
             className="relative h-24 w-32 object-contain drop-shadow-[0_0_22px_rgba(212,175,55,0.38)]"
           />
         </div>
