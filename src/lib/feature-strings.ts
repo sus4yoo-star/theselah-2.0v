@@ -26,6 +26,10 @@ export interface FeatureStrings {
   crisisCallNow: string;
   crisisDismiss: string;
   crisisDisclaimer: string;
+  // Shown when we don't carry a verified local emergency number for the
+  // user's language (i.e. everything except ko/en) — points them to their
+  // own country's emergency services for immediate, life-threatening danger.
+  crisisEmergencyNote: string;
 
   // share / copy
   shareWords: string;
@@ -147,6 +151,8 @@ const ko: FeatureStrings = {
   crisisDismiss: "닫기",
   crisisDisclaimer:
     "셀라는 의료·심리 상담을 대체하지 않습니다. 위급한 상황에서는 전문가의 도움이 가장 안전합니다.",
+  crisisEmergencyNote:
+    "생명이 위급한 상황이라면 지금 바로 현지 응급서비스(예: 한국 119)에 연락하세요.",
 
   shareWords: "기도 나누기",
   copy: "복사",
@@ -272,6 +278,8 @@ const en: FeatureStrings = {
   crisisDismiss: "Dismiss",
   crisisDisclaimer:
     "SELAH is not a substitute for medical or psychological care. In an emergency, please contact a professional.",
+  crisisEmergencyNote:
+    "If you are in immediate, life-threatening danger, please contact your local emergency services right now.",
 
   shareWords: "Share the prayer",
   copy: "Copy",
@@ -409,21 +417,33 @@ const FIND_A_HELPLINE: Hotline = {
 export function hotlinesFor(lang: LangCode): Hotline[] {
   if (lang === "ko") {
     return [
-      { label: "자살예방 상담전화", number: "109", hours: "24시간 · 무료" },
-      { label: "정신건강 위기상담", number: "1577-0199" },
-      { label: "청소년 전화", number: "1388" },
-      { label: "생명의전화", number: "1588-9191" },
+      // Counseling — for when you want to talk it through.
+      { label: "자살예방 상담전화 (상담)", number: "109", hours: "24시간 · 무료" },
+      { label: "정신건강 위기상담 (상담)", number: "1577-0199" },
+      { label: "청소년 전화 (상담)", number: "1388" },
+      { label: "생명의전화 (상담)", number: "1588-9191" },
+      // Emergency — for immediate, life-threatening danger.
+      { label: "응급 · 생명이 위급할 때", number: "119" },
       { label: "전 세계 상담 찾기 (Find a Helpline)", number: "findahelpline.com" },
     ];
   }
   if (lang === "en") {
     return [
-      { label: "Suicide & Crisis Lifeline (US)", number: "988", hours: "24/7" },
+      // Counseling line.
+      {
+        label: "Suicide & Crisis Lifeline · counseling (US)",
+        number: "988",
+        hours: "24/7",
+      },
+      // Emergency — immediate danger.
+      { label: "Emergency · immediate danger (US)", number: "911" },
       FIND_A_HELPLINE,
     ];
   }
-  // Every other language: no invented numbers — findahelpline.com detects
-  // the user's location and lists verified local services.
+  // Every other language: no invented numbers — emergency numbers differ by
+  // country, so the card shows a general "contact your local emergency
+  // services" note (crisisEmergencyNote) plus findahelpline.com, which
+  // detects the user's location and lists verified local services.
   return [FIND_A_HELPLINE];
 }
 
