@@ -36,8 +36,10 @@ const nextConfig = {
     NEXT_PUBLIC_API_BASE: process.env.NEXT_PUBLIC_API_BASE || "",
   },
 
-  eslint: { ignoreDuringBuilds: true },
-  typescript: { ignoreBuildErrors: true },
+  // Let real type and lint errors fail the build instead of silently
+  // shipping them. Lint warnings (e.g. <img> hints) do not fail the build.
+  eslint: { ignoreDuringBuilds: false },
+  typescript: { ignoreBuildErrors: false },
 
   // headers() is a server feature and is not compatible with `output:
   // 'export'`, so only attach it for the web/server build.
