@@ -1,0 +1,27 @@
+name: Weekly SELAH Health Check
+
+on:
+  schedule:
+    # 매주 월요일 오전 9시 KST (= UTC 00:00)
+    - cron: '0 0 * * 1'
+  workflow_dispatch: {}   # 수동 실행 허용
+
+jobs:
+  weekly-report:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Run weekly report via Claude Code
+        uses: anthropics/claude-code-action@beta
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          prompt: /weekly-selah-report
