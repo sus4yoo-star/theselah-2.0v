@@ -36,9 +36,9 @@ const nextConfig = {
     NEXT_PUBLIC_API_BASE: process.env.NEXT_PUBLIC_API_BASE || "",
   },
 
-  // Let real type and lint errors fail the build instead of silently
-  // shipping them. Lint warnings (e.g. <img> hints) do not fail the build.
-  eslint: { ignoreDuringBuilds: false },
+  // Let real type errors fail the build instead of silently shipping them.
+  // (Next 16 removed the build-time ESLint integration; linting now runs as
+  // a separate `npm run lint` step — see eslint.config.mjs and CI.)
   typescript: { ignoreBuildErrors: false },
 
   // headers() is a server feature and is not compatible with `output:

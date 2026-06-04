@@ -2,5 +2,10 @@
   command = "npm run build"
   publish = ".next"
 
+# Next.js 16 requires Node 20.9+. Pin it so the build does not fall back to
+# an older default.
+[build.environment]
+  NODE_VERSION = "20"
+
 [[plugins]]
   package = "@netlify/plugin-nextjs"

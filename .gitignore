@@ -10,6 +10,7 @@
 # Capacitor / mobile build output
 /android
 /ios
+.capacitor-stash
 
 # Production build artifacts / caches
 /build
