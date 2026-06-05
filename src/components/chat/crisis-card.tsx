@@ -55,6 +55,15 @@ export function CrisisCard({
         </button>
       </div>
 
+      {/* For languages without a verified local emergency number (everything
+          except ko/en), point users to their own country's emergency
+          services for immediate, life-threatening danger. */}
+      {lang !== "ko" && lang !== "en" && (
+        <p className="mt-4 rounded-xl border border-amber-200/30 bg-amber-200/[0.05] px-4 py-2.5 text-[13px] leading-relaxed text-amber-100">
+          {fs.crisisEmergencyNote}
+        </p>
+      )}
+
       <ul className="mt-4 space-y-1.5">
         {lines.map((h) => {
           const isNumber = /^[\d\-+\s()]+$/.test(h.number);
