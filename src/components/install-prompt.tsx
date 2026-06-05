@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import { X, Share, Plus, Download } from "lucide-react";
 import { useLanguage } from "@/components/language-provider";
 
@@ -89,9 +90,11 @@ export function InstallPrompt() {
 
       <div className="flex items-start gap-3 pr-7">
         <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-selah-gold/25 bg-selah-gold/[0.08]">
-          <img
+          <Image
             src="/symbol-transparent.png"
             alt=""
+            width={28}
+            height={28}
             className="h-7 w-7 object-contain"
           />
         </span>

@@ -338,6 +338,9 @@ export function MessageBubble({
           You
         </div>
         {message.image && (
+          /* A user-attached image (base64 data URL, unknown dimensions);
+             next/image would require fixed sizing and offers no benefit. */
+          /* eslint-disable-next-line @next/next/no-img-element */
           <img
             src={message.image}
             alt=""

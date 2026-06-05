@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Image from "next/image";
 
 type BeforeInstallPromptEvent = Event & {
   prompt: () => Promise<void>;
@@ -77,7 +78,7 @@ export default function AddToHomePrompt() {
     <div className="fixed inset-x-0 bottom-0 z-[9999] px-4 pb-4 sm:flex sm:justify-center">
       <div className="w-full max-w-md rounded-3xl border border-[#d8b86a]/30 bg-[#071b36]/95 p-5 text-white shadow-2xl backdrop-blur-md">
         <div className="flex items-start gap-4">
-          <img src="/icon-192.png" alt="SELAH" className="h-12 w-12 rounded-2xl shadow-lg" />
+          <Image src="/icon-192.png" alt="SELAH" width={48} height={48} className="h-12 w-12 rounded-2xl shadow-lg" />
           <div className="flex-1">
             <p className="text-base font-semibold text-[#f1d27a]">SELAH를 홈 화면에 추가해보세요</p>
             <p className="mt-1 text-sm leading-6 text-white/80">

@@ -69,7 +69,9 @@ export async function GET(req: Request) {
   if (!secret) {
     return NextResponse.json({ ok: false, error: "no-cron-secret" }, { status: 503 });
   }
-  const provided = req.headers.get("x-cron-secret") || new URL(req.url).searchParams.get("secret") || "";
+  // Only accept the secret via header. A `?secret=` query param would be
+  // written verbatim into server, proxy and CDN access logs, leaking it.
+  const provided = req.headers.get("x-cron-secret") || "";
   if (provided !== secret) {
     return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
   }

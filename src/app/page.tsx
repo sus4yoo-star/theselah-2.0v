@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useLanguage } from "@/components/language-provider";
 import { LanguageSelector } from "@/components/language-selector";
 import { Button } from "@/components/ui/button";
@@ -23,9 +24,12 @@ export default function HomePage() {
             className="absolute left-1/2 top-1/2 h-40 w-40 animate-breathe rounded-full bg-selah-gold/10 blur-2xl"
             aria-hidden
           />
-          <img
+          <Image
             src="/symbol-transparent.png"
             alt="SELAH"
+            width={176}
+            height={128}
+            priority
             className="relative h-32 w-44 object-contain drop-shadow-[0_0_26px_rgba(212,175,55,0.4)]"
           />
         </div>

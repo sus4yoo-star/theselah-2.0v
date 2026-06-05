@@ -1,0 +1,38 @@
+# Dependencies
+/node_modules
+/.pnp
+.pnp.js
+
+# Next.js build output
+/.next/
+/out/
+
+# Capacitor / mobile build output
+/android
+/ios
+.capacitor-stash
+
+# Production build artifacts / caches
+/build
+*.tsbuildinfo
+next-env.d.ts
+
+# Environment variables & secrets — NEVER commit these
+.env
+.env.*
+!.env.example
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Test / coverage output
+/coverage

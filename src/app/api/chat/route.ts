@@ -3,6 +3,7 @@ import { buildSystemPrompt, classifyIntent } from "@/lib/prompt";
 import { normalizeLang, detectLangFromText } from "@/lib/i18n";
 import { getApiAuth } from "@/lib/supabase/api-auth";
 import { withCors, preflight } from "@/lib/cors";
+import { checkRateLimit } from "@/lib/rate-limit";
 import { loadUserMemory, updateUserMemory } from "@/lib/selah-memory";
 import {
   ANTHROPIC_VERSION,
@@ -59,6 +60,26 @@ export async function POST(req: NextRequest) {
   supabase = auth.supabase;
   userId = auth.user.id;
 
+  // Cap how often a single user can hit the (paid) model to protect the
+  // API bill from runaway loops or abuse. Configurable via
+  // CHAT_RATE_LIMIT_PER_MIN (default 20 requests / minute / user).
+  const rl = checkRateLimit(`chat:${userId}`);
+  if (!rl.allowed) {
+    return new Response(
+      JSON.stringify({
+        error:
+          "메시지를 너무 빠르게 보내셨어요. 잠시 후 다시 시도해 주세요.",
+      }),
+      {
+        status: 429,
+        headers: withCors({
+          "Content-Type": "application/json",
+          "Retry-After": String(rl.retryAfter),
+        }),
+      }
+    );
+  }
+
   let body: Body;
   try {
     body = (await req.json()) as Body;
@@ -93,6 +114,28 @@ export async function POST(req: NextRequest) {
     typeof body.image === "string" && body.image.startsWith("data:image/")
       ? body.image
       : "";
+
+  // Reject oversized attachments before doing any work: a huge base64 blob
+  // wastes memory, risks function timeouts, and inflates the model bill.
+  // base64 expands bytes by ~4/3, so approximate the real payload size.
+  if (image) {
+    const maxMb = Number(process.env.MAX_IMAGE_MB) > 0
+      ? Number(process.env.MAX_IMAGE_MB)
+      : 5;
+    const approxBytes = Math.floor((image.length * 3) / 4);
+    if (approxBytes > maxMb * 1024 * 1024) {
+      return new Response(
+        JSON.stringify({
+          error: `이미지가 너무 커요. ${maxMb}MB 이하로 다시 보내주세요.`,
+        }),
+        {
+          status: 413,
+          headers: withCors({ "Content-Type": "application/json" }),
+        }
+      );
+    }
+  }
+
   const hasImage = Boolean(image);
 
   const bibleMode = Boolean(body.bibleMode);

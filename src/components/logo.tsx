@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { cn } from "@/lib/utils";
 
 export function Logo({
@@ -25,9 +26,11 @@ export function Logo({
       className="group flex items-center gap-2.5 outline-none"
       aria-label="SELAH home"
     >
-      <img
+      <Image
         src="/symbol-transparent.png"
         alt=""
+        width={44}
+        height={44}
         className={cn(
           "shrink-0 object-contain drop-shadow-[0_0_12px_rgba(212,175,55,0.28)] transition-transform group-hover:scale-105",
           dim
